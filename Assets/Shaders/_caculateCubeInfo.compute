@@ -1,0 +1,62 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSCaculatePosition
+//#pragma kernel CSMain
+
+#define PI 3.1415926535897323846
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+RWStructuredBuffer<float3> _Positions;
+
+float _Step,_Time;
+uint _Resolution;
+float4 _GOPosition;
+
+
+
+float2 GetUV(uint3 id)
+{
+    //return id.xy;
+    return (id.xy + 0.5) * _Step - 1.0;
+}
+
+void SetPosition(uint3 id,float3 position)
+{
+    // if(id.x < _Resolution && id.y < _Resolution)
+    // {
+    //     _Positions[id.x + id.y * _Resolution] = position;
+    // }
+    _Positions[id.x + id.y * _Resolution] = position;
+}
+
+float3 Wave(float u,float v,float t)
+{
+    float3 p;
+    p.x = u;
+    p.y = sin(PI * (u + v + t));
+    // p.y = u+v;
+    p.z = v;
+    return (p / _Step) + _GOPosition.xyz;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+
+    Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+}
+
+[numthreads(8,8,1)]
+void CSCaculatePosition(uint3 id : SV_DispatchThreadID)
+{
+    float2 uv = GetUV(id);
+    SetPosition(id,Wave(uv.x,uv.y,_Time));
+}
+
+
+
+
+
+

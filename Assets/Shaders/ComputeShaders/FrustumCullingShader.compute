@@ -1,0 +1,67 @@
+#pragma kernel FrustumCull
+#pragma kernel CopyMatrices
+
+// 输入：所有实例的变换矩阵
+StructuredBuffer<float4x4> InputMatrices;
+// 输出：通过剔除测试的实例矩阵
+AppendStructuredBuffer<float4x4> OutputMatrices;
+
+// 用于CopyMatrices核函数的输出缓冲区
+RWStructuredBuffer<float4x4> OutputMatricesCopy;
+
+// 视锥体平面（6个平面）
+float4 FrustumPlanes[6];
+// 实例总数
+int InstanceCount;
+// 树木的包围球半径
+float BoundsRadius;
+// 相机位置（用于距离剔除）
+float3 CameraPosition;
+
+// 判断点是否在视锥体内
+bool IsInFrustum(float3 position, float radius)
+{
+    for (int i = 0; i < 6; i++)
+    {
+        float4 plane = FrustumPlanes[i];
+        float distance = dot(plane.xyz, position) + plane.w;
+        if (distance < -radius)
+            return false;
+    }
+    return true;
+}
+
+// 视锥剔除核函数
+[numthreads(64, 1, 1)]
+void FrustumCull(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= InstanceCount)
+        return;
+    
+    // 获取实例的变换矩阵
+    float4x4 matrix_x4 = InputMatrices[id.x];
+    
+    // 提取位置（矩阵的第四列）
+    float3 position = float3(matrix_x4[0][3], matrix_x4[1][3], matrix_x4[2][3]);
+    
+    // 视锥体测试
+    if (IsInFrustum(position, BoundsRadius))
+    {
+        // 通过测试，添加到输出缓冲区
+        OutputMatrices.Append(matrix_x4);
+    }
+}
+
+// 复制矩阵的核函数 - 修正版本
+[numthreads(64, 1, 1)]
+void CopyMatrices(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= InstanceCount)
+        return;
+    
+    // 从输入缓冲区读取矩阵
+    float4x4 matrix_x4 = InputMatrices[id.x];
+    
+    // 将矩阵写入输出缓冲区 - 这是之前遗漏的关键代码！
+    OutputMatricesCopy[id.x] = matrix_x4;
+}
