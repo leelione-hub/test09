@@ -65,7 +65,7 @@ Shader "Custom/CustomCapsule"
                 // 转换到裁剪空间
                 o.normal = TransformObjectToWorldNormal(v.normal);
                 o.worldPos = mul(positionBuffer[v.instanceID],v.vertex);
-                o.worldPos.xyz += _WindDir.xyz * _WindDir.w * v.vertex.y * sin(_Time.y);
+                //o.worldPos.xyz += _WindDir.xyz * _WindDir.w * v.vertex.y * sin(_Time.y);
                 o.vertex = mul(UNITY_MATRIX_VP,o.worldPos);
                 return o;
             }

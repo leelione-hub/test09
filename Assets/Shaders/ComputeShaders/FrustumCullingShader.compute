@@ -3,11 +3,13 @@
 
 // 输入：所有实例的变换矩阵
 StructuredBuffer<float4x4> InputMatrices;
+StructuredBuffer<float4x4> InputNormalMatrices;
 // 输出：通过剔除测试的实例矩阵
 AppendStructuredBuffer<float4x4> OutputMatrices;
-
+AppendStructuredBuffer<float4x4> OutputNormalMatrices;
 // 用于CopyMatrices核函数的输出缓冲区
 RWStructuredBuffer<float4x4> OutputMatricesCopy;
+RWStructuredBuffer<float4x4> OutputNormalMatricesCopy;
 
 // 视锥体平面（6个平面）
 float4 FrustumPlanes[6];
@@ -49,10 +51,11 @@ void FrustumCull(uint3 id : SV_DispatchThreadID)
     {
         // 通过测试，添加到输出缓冲区
         OutputMatrices.Append(matrix_x4);
+        OutputNormalMatrices.Append(InputNormalMatrices[id.x]);
     }
 }
 
-// 复制矩阵的核函数 - 修正版本
+// 复制矩阵的核函数
 [numthreads(64, 1, 1)]
 void CopyMatrices(uint3 id : SV_DispatchThreadID)
 {
@@ -62,6 +65,5 @@ void CopyMatrices(uint3 id : SV_DispatchThreadID)
     // 从输入缓冲区读取矩阵
     float4x4 matrix_x4 = InputMatrices[id.x];
     
-    // 将矩阵写入输出缓冲区 - 这是之前遗漏的关键代码！
     OutputMatricesCopy[id.x] = matrix_x4;
 }
