@@ -1,0 +1,66 @@
+#pragma kernel DepthBlit
+#pragma kernel GenMipmap
+
+Texture2D<float> _CameraDepthTexture;
+RWTexture2D<float> _HizDepthTexture;
+
+int _CameraDepthTextureWidth;
+int _CameraDepthTextureHeight;
+int _HizDepthTextureBaseWidth;
+int _HizDepthTextureBaseHeight;
+
+[numthreads(8,8,1)]
+void DepthBlit (uint2 id : SV_DispatchThreadID)
+{
+    [branch]
+    if(id.x >= (uint)_HizDepthTextureBaseWidth || id.y >= (uint)_HizDepthTextureBaseHeight)
+    {
+        return;
+    }
+    
+    float2 uv = id / float2(_HizDepthTextureBaseWidth, _HizDepthTextureBaseHeight);
+    int2 targetCoord = uv * float2(_CameraDepthTextureWidth, _CameraDepthTextureHeight);
+
+    float depth = _CameraDepthTexture.Load(int3(targetCoord, 0));
+
+    _HizDepthTexture[id] = depth;
+}
+
+int _HizMipmapLevel;
+
+void GetMipmapInfo(const int mipmapLevel, out uint2 startCoord, out uint2 size)
+{
+    if(mipmapLevel == 0)
+    {
+        startCoord = 0;
+        return;
+    }
+    
+    size.x = _HizDepthTextureBaseWidth >> mipmapLevel;
+    size.y = _HizDepthTextureBaseHeight >> mipmapLevel;
+    startCoord.x = _HizDepthTextureBaseWidth;
+    startCoord.y = size.y;
+}
+
+[numthreads(8,8,1)]
+void GenMipmap (uint2 id : SV_DispatchThreadID)
+{
+    uint2 curLevelStartCoord, curLevelSize, preLevelStartCoord, preLevelSize;
+    GetMipmapInfo(_HizMipmapLevel, curLevelStartCoord, curLevelSize);
+    GetMipmapInfo(_HizMipmapLevel - 1, preLevelStartCoord, preLevelSize);
+
+    [branch]
+    if(id.x >= curLevelSize.x || id.y >= curLevelSize.y)
+    {
+        return;
+    }
+
+    float depth0 = _HizDepthTexture.Load(uint3(preLevelStartCoord + id * 2u + uint2(0u, 0u), 0u)).x;
+    float depth1 = _HizDepthTexture.Load(uint3(preLevelStartCoord + id * 2u + uint2(1u, 0u), 0u)).x;
+    float depth2 = _HizDepthTexture.Load(uint3(preLevelStartCoord + id * 2u + uint2(0u, 1u), 0u)).x;
+    float depth3 = _HizDepthTexture.Load(uint3(preLevelStartCoord + id * 2u + uint2(1u, 1u), 0u)).x;
+
+    float depth = max(max(depth0, depth1), max(depth2, depth3));
+
+    _HizDepthTexture[curLevelStartCoord + id] = depth;
+}

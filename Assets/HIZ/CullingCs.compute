@@ -1,0 +1,245 @@
+#pragma multi_compile_local _ _DEBUG
+
+#pragma kernel CSMain1
+#pragma kernel CSMain8
+#pragma kernel CSMain64
+#pragma kernel CSMain512
+
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+StructuredBuffer<float3> _AllCenters;
+StructuredBuffer<float3> _AllExtents;
+RWStructuredBuffer<float> _CullingResultBuffer;
+
+TEXTURE2D(_HizDepthTexture);
+SAMPLER(sampler_HizDepthTexture);
+int _HizDepthTextureBaseWidth;
+int _HizDepthTextureBaseHeight;
+float4x4 _VP;
+#if _DEBUG
+RWTexture2D<float4> _DebugRT;
+float4 _DebugRTSize;
+int _DebugNum;
+#endif
+
+int CeilToSecondPower(int input)
+{
+    int n = input - 1;
+    n |= n >> 1;
+    n |= n >> 2;
+    n |= n >> 4;
+    n |= n >> 8;
+    n |= n >> 16;
+    n += 1;
+    return n;
+}
+
+int GetExceptedTexelSize(float2 boundsOffset, float2 boundsSize)
+{
+    float size = max(boundsSize.x, boundsSize.y);
+    int targetTexelCount = CeilToSecondPower(1 / size);
+    float targetTexelSize = 1.0 / targetTexelCount;
+    int coordLeft = floor(boundsOffset.x / targetTexelSize);
+    int coordRight = floor((boundsOffset.x + boundsSize.x) / targetTexelSize);
+    int coordDown = floor(boundsOffset.y / targetTexelSize);
+    int coordUp = floor((boundsOffset.y + boundsSize.y) / targetTexelSize);
+    if(coordRight - coordLeft > 1 || coordUp - coordDown > 1)
+    {
+        targetTexelCount *= 0.5;
+    }
+    return targetTexelCount;
+}
+
+int GetMipmapLevel(float2 boundsOffset, float2 boundsSize)
+{
+    int mipmapPower2 = log2(min(_HizDepthTextureBaseWidth, _HizDepthTextureBaseHeight));
+    int exceptedPower2 = log2(GetExceptedTexelSize(boundsOffset, boundsSize));
+    return clamp(mipmapPower2 - exceptedPower2, 0, mipmapPower2);
+}
+
+void GetMipmapInfo(const int hizMipmapLevel, out int2 startCoord, out int2 size)
+{
+    if(hizMipmapLevel == 0)
+    {
+        startCoord = 0;
+        return;
+    }
+    
+    size.x = _HizDepthTextureBaseWidth >> hizMipmapLevel;
+    size.y = _HizDepthTextureBaseHeight >> hizMipmapLevel;
+    startCoord.x = _HizDepthTextureBaseWidth;
+    startCoord.y = size.y;
+}
+
+float SampleMipmapTexture(float2 uv, int mipmapLevel)
+{
+    int2 startCoord, size;
+    GetMipmapInfo(mipmapLevel, startCoord, size);
+    
+    int2 coord = uv * size;
+    return _HizDepthTexture.Load(int3(startCoord + coord, 0));
+}
+
+bool HizCulling(float3 center, float3 extents,uint id)
+{
+    const int3 offsetsExtents[] = {
+        int3(1,1,1),
+        int3(1,1,-1),
+        int3(1,-1,1),
+        int3(1,-1,-1),
+        int3(-1,1,1),
+        int3(-1,1,-1),
+        int3(-1,-1,1),
+        int3(-1,-1,-1)
+    };
+
+    const int2 offsetsUv[] = {
+        int2(0,0),
+        int2(0,1),
+        int2(1,0),
+        int2(1,1)
+    };
+
+    float2 minUv = float2(999, 999);
+    float2 maxUv = float2(-999, -999);
+    float minZ = 999;
+
+    // 取得在屏幕空间下的包围盒
+    // z值近裁剪平面0，远裁剪平面1
+    uint i;
+    [unroll]
+    for(i = 0; i < 8; i++)
+    {
+        float3 cornerWS = center + extents * offsetsExtents[i];
+        float4 cornerCS = mul(_VP, float4(cornerWS, 1));
+        cornerCS.xyz /= cornerCS.w;
+        cornerCS.xy = cornerCS.xy * 0.5 + 0.5;
+
+        #if !UNITY_UV_STARTS_AT_TOP
+            cornerCS.z = cornerCS.z * 0.5 + 0.5;
+        #endif
+
+        cornerCS.z = Linear01Depth(cornerCS.z, _ZBufferParams);
+
+        minUv = min(minUv, cornerCS.xy);
+        maxUv = max(maxUv, cornerCS.xy);
+        minZ = min(minZ, cornerCS.z);
+    }
+    
+    uint mipmapLevel = GetMipmapLevel(clamp(minUv, 0, 1), clamp(maxUv - minUv, 0, 1));
+
+    uint sizeX = _HizDepthTextureBaseWidth >> mipmapLevel;
+    uint sizeY = _HizDepthTextureBaseHeight >> mipmapLevel;
+    minUv -= 1 / float2(sizeX,sizeY);
+    maxUv += 1 / float2(sizeX,sizeY);
+    
+    uint count = 0;
+    float4 result = 0;
+    [unroll]
+    for(i = 0; i < 4; i++)
+    {
+        float2 uv = lerp(minUv, maxUv, offsetsUv[i]);
+    
+        float desDepth = SampleMipmapTexture(uv, mipmapLevel).r;
+        desDepth = Linear01Depth(desDepth, _ZBufferParams);
+
+        if(desDepth < minZ)
+        {
+            count ++;
+        }
+        
+        result[i] = desDepth - minZ;
+    }
+
+    #if _DEBUG
+    if(id == _DebugNum)
+    {
+        int maxXId = ceil(maxUv.x * _DebugRTSize.x);
+        int maxYId = ceil(maxUv.y * _DebugRTSize.y);
+        int minXId = floor(minUv.x * _DebugRTSize.x);
+        int minYId = floor(minUv.y * _DebugRTSize.y);
+        int halfXId = (maxXId + minXId) / 2;
+        int halfYId = (maxYId + minYId) / 2;
+    
+        for(uint j = 0;j< _DebugRTSize.x;j++)
+        {
+            for(uint k = 0;k<_DebugRTSize.y;k++)
+            {
+                float d;
+                float2 curUV = float2(j,k) / _DebugRTSize;
+                float desDepth = SampleMipmapTexture(curUV, mipmapLevel).r;
+                if(j >= minXId && j < halfXId && k >= minYId && k < halfYId)
+                {
+                    d = result.x;
+                }
+                else if(j >= minXId && j < halfXId && k >= halfYId && k < maxYId)
+                {
+                    d = result.y;
+                }
+                else if(j >= halfXId && j < maxXId && k >= minYId && k < halfYId)
+                {
+                    d = result.z;
+                }
+                else if(j >= halfXId && j < maxXId && k >= halfYId && k < maxYId)
+                {
+                    d = result.w;
+                }
+                else
+                {
+                    d = -100;
+                }
+                float4 debugColor = d < -99 ? float4(0,0,0,1) : (d < 0 ? float4(1,0,0,1):float4(0,1,0,0));
+                _DebugRT[uint2(j,k)] = float4(desDepth * 10,0,0,1) + debugColor;
+            }
+        }
+    }
+    #endif
+    
+    return count == 4;
+}
+
+void GetBounds(uint id, out float3 center, out float3 extents)
+{
+    center = _AllCenters[id];
+    extents = _AllExtents[id];
+}
+
+void Process(uint id)
+{
+    /////////////////////////
+    // GetBounds
+    float3 center;
+    float3 extents;
+    GetBounds(id, center, extents);
+
+    /////////////////////////
+    // Hiz剔除
+    bool cullingCheck = HizCulling(center, extents, id);
+    _CullingResultBuffer[id] = cullingCheck ? 1 : 0;
+    
+    //_CullingResultBuffer[id] = HizCulling(center, extents,id);
+}
+
+[numthreads(1,1,1)]
+void CSMain1 (uint3 id : SV_DispatchThreadID)
+{
+    Process(id.x);
+}
+
+[numthreads(8,1,1)]
+void CSMain8 (uint3 id : SV_DispatchThreadID)
+{
+    Process(id.x);
+}
+
+[numthreads(64,1,1)]
+void CSMain64 (uint3 id : SV_DispatchThreadID)
+{
+    Process(id.x);
+}
+
+[numthreads(512,1,1)]
+void CSMain512 (uint3 id : SV_DispatchThreadID)
+{
+    Process(id.x);
+}
