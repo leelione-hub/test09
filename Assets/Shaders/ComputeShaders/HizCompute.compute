@@ -1,0 +1,34 @@
+#pragma kernel BuildHizPyramid
+
+Texture2D<float> SourceTex;
+RWTexture2D<float> ResultTex;
+
+int SourceMip;
+
+// 从上一级Mip采样4个点，取最大值（最远深度）
+float SampleMaxDepth(int2 uv)
+{
+    float2 sourceSize;
+    SourceTex.GetDimensions(sourceSize.x, sourceSize.y);
+    
+    int2 sourceUV = uv * 2;
+    
+    float d1 = SourceTex.Load(int3(sourceUV.x, sourceUV.y, SourceMip));
+    float d2 = SourceTex.Load(int3(sourceUV.x + 1, sourceUV.y, SourceMip));
+    float d3 = SourceTex.Load(int3(sourceUV.x, sourceUV.y + 1, SourceMip));
+    float d4 = SourceTex.Load(int3(sourceUV.x + 1, sourceUV.y + 1, SourceMip));
+    
+    return max(max(d1, d2), max(d3, d4));
+}
+
+[numthreads(8, 8, 1)]
+void BuildHizPyramid(uint3 id : SV_DispatchThreadID)
+{
+    int2 uv = id.xy;
+    
+    if (uv.x >= ResultTex.Length.x || uv.y >= ResultTex.Length.y)
+        return;
+    
+    float maxDepth = SampleMaxDepth(uv);
+    ResultTex[uv] = maxDepth;
+}
