@@ -143,6 +143,12 @@ Varyings LitPassVertex(Attributes input)
     UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
     VertexPositionInputs vertexInput  = GetVertexPositionInputs(input.positionOS.xyz);
+    
+    // normalWS and tangentWS already normalize.
+    // this is required to avoid skewing the direction during interpolation
+    // also required for per-vertex lighting and SH evaluation
+    VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
+    
     #ifdef _GPUINSTANCE_ON
     //重新计算世界坐标
     float4 worldPosition = mul(positionBuffer[input.instanceID],input.positionOS);
@@ -152,14 +158,13 @@ Varyings LitPassVertex(Attributes input)
     float4 ndc = vertexInput.positionCS * 0.5f;
     vertexInput.positionNDC.xy = float2(ndc.x, ndc.y * _ProjectionParams.x) + ndc.w;
     vertexInput.positionNDC.zw = vertexInput.positionCS.zw;
-    #endif
 
-    // normalWS and tangentWS already normalize.
-    // this is required to avoid skewing the direction during interpolation
-    // also required for per-vertex lighting and SH evaluation
-    VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
+    real sign = real(input.tangentOS.w) * GetOddNegativeScale();
+    normalInput.normalWS = normalize(mul((float3x3)normalBuffer[input.instanceID],input.normalOS));
+    normalInput.tangentWS = real3(TransformObjectToWorldDir(input.tangentOS.xyz));
+    normalInput.bitangentWS = real3(cross(normalInput.normalWS, float3(normalInput.tangentWS))) * sign;
+    #endif
     
-    //normalInput.normalWS = 
 
     half3 vertexLight = VertexLighting(vertexInput.positionWS, normalInput.normalWS);
 
@@ -252,7 +257,7 @@ void LitPassFragment(
     color.a = OutputAlpha(color.a, IsSurfaceTypeTransparent(_Surface));
 
     outColor = color;
-    outColor.rgb = inputData.normalWS;
+    //outColor.rgb = input.normalWS;
 
 #ifdef _WRITE_RENDERING_LAYERS
     uint renderingLayers = GetMeshRenderingLayer();

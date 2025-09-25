@@ -120,7 +120,7 @@ public class IndirectTreeRenderer : MonoBehaviour
                 
                 //收集矩阵
                 Matrix4x4 matrix = Matrix4x4.TRS(worldPos, rotation, scale);
-                Matrix4x4 normalMatrix = matrix.inverse.transpose;
+                Matrix4x4 normalMatrix = CalculateNormalMatrix(matrix);
                 
                 var renderer = treeRenderers[treeData.prototypeIndex];
                 renderer.matrices.Add(matrix);
@@ -144,9 +144,9 @@ public class IndirectTreeRenderer : MonoBehaviour
                 renderer.inputNormalBuffer = new ComputeBuffer(instanceCount, 64);
                 renderer.inputNormalBuffer.SetData(renderer.normalMatrices);
                 // 创建输出缓冲区（剔除后的矩阵）
-                renderer.outputBuffer = new ComputeBuffer(instanceCount, 64, ComputeBufferType.Append);
+                renderer.outputBuffer = new ComputeBuffer(instanceCount, 64, ComputeBufferType.Raw);
                 renderer.outputBuffer.SetCounterValue(0);
-                renderer.outputNormalBuffer = new ComputeBuffer(instanceCount, 64, ComputeBufferType.Append);
+                renderer.outputNormalBuffer = new ComputeBuffer(instanceCount, 64, ComputeBufferType.Raw);
                 renderer.outputNormalBuffer.SetCounterValue(0);
                 // 创建计数器缓冲区
                 renderer.counterBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
@@ -159,8 +159,8 @@ public class IndirectTreeRenderer : MonoBehaviour
                 renderer.matrixBuffer.SetData(renderer.matrices);
                 
                 // 设置材质参数
-                renderer.material.SetBuffer("positionBuffer", renderer.culledMatrixBuffer);
-                renderer.material.SetBuffer("normalBuffer",renderer.culledNormalMatrixBuffer);
+                renderer.material.SetBuffer("positionBuffer", renderer.outputBuffer);
+                renderer.material.SetBuffer("normalBuffer",renderer.outputNormalBuffer);
                 if (GPUInstanceON)
                 {
                     renderer.material.EnableKeyword(GPUINSTANCE_ON);
@@ -185,6 +185,19 @@ public class IndirectTreeRenderer : MonoBehaviour
         // 设置地形边界
         terrainBounds = terrainData.bounds;
         terrainBounds.center += terrain.transform.position;
+    }
+
+    Matrix4x4 CalculateNormalMatrix(Matrix4x4 worldMatrix)
+    {
+        // 提取旋转和缩放部分（忽略平移）
+        Matrix4x4 rotationScaleMatrix = worldMatrix;
+        rotationScaleMatrix.m03 = 0; rotationScaleMatrix.m13 = 0; rotationScaleMatrix.m23 = 0;
+        rotationScaleMatrix.m30 = 0; rotationScaleMatrix.m31 = 0; rotationScaleMatrix.m32 = 0;
+        rotationScaleMatrix.m33 = 1;
+    
+        // 计算逆转置矩阵
+        Matrix4x4 inverseTranspose = rotationScaleMatrix.inverse.transpose;
+        return inverseTranspose;
     }
 
     void Update()
@@ -219,48 +232,40 @@ public class IndirectTreeRenderer : MonoBehaviour
 
     void PerformFrustumCulling(TreePrototypeRenderer renderer)
     {
-        int instaceCount = renderer.matrices.Count;
-        renderer.outputBuffer.SetCounterValue(0);
+        int instanceCount = renderer.matrices.Count;
         
-        //设置computeshader参数
+        // // 重置输出缓冲区的计数器
+        // renderer.outputBuffer.SetCounterValue(0);
+        // renderer.outputNormalBuffer.SetCounterValue(0);
+        
+        // 创建可见性标记缓冲区
+        ComputeBuffer visibilityBuffer = new ComputeBuffer(instanceCount, sizeof(uint));
+        ComputeBuffer visibleCountBuffer = new ComputeBuffer(1, sizeof(uint));
+        
+        // 设置Compute Shader参数
         cullingComputeShader.SetBuffer(0, "InputMatrices", renderer.inputBuffer);
         cullingComputeShader.SetBuffer(0, "InputNormalMatrices", renderer.inputNormalBuffer);
         cullingComputeShader.SetBuffer(0, "OutputMatrices", renderer.outputBuffer);
-        cullingComputeShader.SetBuffer(0,"OutputNormalMatrices",renderer.outputNormalBuffer);
-        cullingComputeShader.SetInt("InstanceCount", instaceCount);
+        cullingComputeShader.SetBuffer(0, "OutputNormalMatrices", renderer.outputNormalBuffer);
+        cullingComputeShader.SetBuffer(0, "VisibilityFlags", visibilityBuffer);
+        cullingComputeShader.SetBuffer(0, "VisibleCount", visibleCountBuffer);
+        cullingComputeShader.SetInt("InstanceCount", instanceCount);
         cullingComputeShader.SetFloat("BoundsRadius", renderer.boundsRadius);
-        
-        //设置视锥平面
         cullingComputeShader.SetVectorArray("FrustumPlanes", frustumPlanesVector);
-
+        
         // 计算线程组数量
-        int threadGroups = Mathf.CeilToInt((float)instaceCount / THREAD_GROUP_SIZE);
-
+        int threadGroups = Mathf.CeilToInt((float)instanceCount / THREAD_GROUP_SIZE);
+        
         // 执行Compute Shader
         cullingComputeShader.Dispatch(0, threadGroups, 1, 1);
-
-        // 获取剔除后的实例数量
-        ComputeBuffer.CopyCount(renderer.outputBuffer, renderer.counterBuffer, 0);
-
-        int[] counter = new int[1] { 0 };
-
-        renderer.counterBuffer.GetData(counter);
-        int visibleCount = counter[0];
+        
+        // 获取可见实例数量
+        uint[] visibleCountArray = new uint[1];
+        visibleCountBuffer.GetData(visibleCountArray);
+        int visibleCount = (int)visibleCountArray[0];
 
         if (visibleCount > 0)
         {
-            // 使用ComputeShader将数据从输出缓冲区复制到最终缓冲区
-            ComputeShader copyShader = cullingComputeShader; // 可以使用同一个Shader的不同kernel
-            copyShader.SetBuffer(1, "InputMatrices", renderer.outputBuffer);
-            copyShader.SetBuffer(1, "OutputMatricesCopy", renderer.culledMatrixBuffer);
-            copyShader.SetInt("InstanceCount", visibleCount);
-            
-            int copyThreadGroups = Mathf.CeilToInt((float)visibleCount / THREAD_GROUP_SIZE);
-            copyShader.Dispatch(1, copyThreadGroups, 1, 1);
-
-            // ComputeBuffer.CopyCount(renderer.outputBuffer, renderer.culledMatrixBuffer, 0);
-            //ComputeBuffer.CopyCount(renderer.outputNormalBuffer,renderer.culledNormalMatrixBuffer,0);
-            
             // 更新绘制参数
             renderer.args[1] = (uint)visibleCount;
             renderer.argsBuffer.SetData(renderer.args);
@@ -271,24 +276,30 @@ public class IndirectTreeRenderer : MonoBehaviour
             renderer.args[1] = 0;
             renderer.argsBuffer.SetData(renderer.args);
         }
+        
+        // 清理临时缓冲区
+        visibilityBuffer.Release();
+        visibleCountBuffer.Release();
     }
 
     void DrawCulledTrees(TreePrototypeRenderer renderer)
     {
         if (renderer.mesh != null && renderer.material != null && renderer.argsBuffer != null)
         {
-            // 这里可以添加视锥体剔除逻辑
-            Graphics.DrawMeshInstancedIndirect(
-                renderer.mesh, 
-                0, 
-                renderer.material, 
-                terrainBounds, 
-                renderer.argsBuffer,
-                0,
-                null,
-                ShadowCastingMode.On,
-                true
-            );
+            if (renderer.args[1] > 0)
+            {
+                Graphics.DrawMeshInstancedIndirect(
+                    renderer.mesh, 
+                    0, 
+                    renderer.material, 
+                    terrainBounds, 
+                    renderer.argsBuffer,
+                    0,
+                    null,
+                    ShadowCastingMode.On,
+                    true
+                );
+            }
         }
     }
 
@@ -297,12 +308,14 @@ public class IndirectTreeRenderer : MonoBehaviour
         // 释放缓冲区
         foreach (TreePrototypeRenderer renderer in treeRenderers)
         {
-            ClearBuffer(renderer.matrixBuffer);
-            ClearBuffer(renderer.argsBuffer);
-            ClearBuffer(renderer.inputBuffer);
-            ClearBuffer(renderer.outputBuffer);
-            ClearBuffer(renderer.culledMatrixBuffer);
-            ClearBuffer(renderer.counterBuffer);
+            if (renderer.inputBuffer != null) renderer.inputBuffer.Release();
+            if (renderer.inputNormalBuffer != null) renderer.inputNormalBuffer.Release();
+            if (renderer.outputBuffer != null) renderer.outputBuffer.Release();
+            if (renderer.outputNormalBuffer != null) renderer.outputNormalBuffer.Release();
+            if (renderer.culledMatrixBuffer != null) renderer.culledMatrixBuffer.Release();
+            if (renderer.culledNormalMatrixBuffer != null) renderer.culledNormalMatrixBuffer.Release();
+            if (renderer.counterBuffer != null) renderer.counterBuffer.Release();
+            if (renderer.argsBuffer != null) renderer.argsBuffer.Release();
             
             if (GPUInstanceON)
             {

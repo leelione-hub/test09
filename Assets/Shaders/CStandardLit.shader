@@ -345,7 +345,7 @@ Shader "Custom/CStandardLit"
             // -------------------------------------
             // Includes
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/DepthOnlyPass.hlsl"
+            #include "HLSL/C_LitDepthOnlyPass.hlsl"
             ENDHLSL
         }
 

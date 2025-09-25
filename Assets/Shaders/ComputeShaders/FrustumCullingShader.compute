@@ -5,11 +5,16 @@
 StructuredBuffer<float4x4> InputMatrices;
 StructuredBuffer<float4x4> InputNormalMatrices;
 // 输出：通过剔除测试的实例矩阵
-AppendStructuredBuffer<float4x4> OutputMatrices;
-AppendStructuredBuffer<float4x4> OutputNormalMatrices;
+RWStructuredBuffer<float4x4> OutputMatrices;
+RWStructuredBuffer<float4x4> OutputNormalMatrices;
 // 用于CopyMatrices核函数的输出缓冲区
 RWStructuredBuffer<float4x4> OutputMatricesCopy;
 RWStructuredBuffer<float4x4> OutputNormalMatricesCopy;
+
+RWStructuredBuffer<uint> VisibilityFlags;
+RWStructuredBuffer<uint> VisibleCount;
+
+
 
 // 视锥体平面（6个平面）
 float4 FrustumPlanes[6];
@@ -37,22 +42,37 @@ bool IsInFrustum(float3 position, float radius)
 [numthreads(64, 1, 1)]
 void FrustumCull(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= InstanceCount)
-        return;
-    
-    // 获取实例的变换矩阵
-    float4x4 matrix_x4 = InputMatrices[id.x];
-    
-    // 提取位置（矩阵的第四列）
-    float3 position = float3(matrix_x4[0][3], matrix_x4[1][3], matrix_x4[2][3]);
-    
-    // 视锥体测试
-    if (IsInFrustum(position, BoundsRadius))
+    if(id.x == 0)
     {
-        // 通过测试，添加到输出缓冲区
-        OutputMatrices.Append(matrix_x4);
-        OutputNormalMatrices.Append(InputNormalMatrices[id.x]);
+        VisibleCount[0] = 0;
     }
+
+    GroupMemoryBarrierWithGroupSync();
+    
+    if(id.x >= InstanceCount)
+    {
+        return;
+    }
+
+    float4x4 matrix_x4 = InputMatrices[id.x];
+    //float3 position = float3(matrix_x4[0][3], matrix_x4[1][3], matrix_x4[2][3]);
+    float3 position = float3(matrix_x4._m03_m13_m23);
+    bool isVisible = true; // 直接设置为true进行测试
+    isVisible = IsInFrustum(position, BoundsRadius);
+    
+    if (isVisible)
+    {
+        // 使用原子操作确保顺序写入
+        uint outputIndex;
+        InterlockedAdd(VisibleCount[0], 1, outputIndex);
+        
+        // 按顺序写入输出缓冲区
+        OutputMatrices[outputIndex] = matrix_x4;
+        OutputNormalMatrices[outputIndex] = InputNormalMatrices[id.x];
+    }
+    
+    // 设置可见性标记（可选，用于调试）
+    VisibilityFlags[id.x] = isVisible ? 1u : 0u;
 }
 
 // 复制矩阵的核函数
@@ -66,4 +86,5 @@ void CopyMatrices(uint3 id : SV_DispatchThreadID)
     float4x4 matrix_x4 = InputMatrices[id.x];
     
     OutputMatricesCopy[id.x] = matrix_x4;
+    OutputNormalMatricesCopy[id.x] = InputNormalMatrices[id.x];
 }
