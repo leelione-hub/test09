@@ -928,6 +928,7 @@ MonoBehaviour:
   enableHizCulling: 1
   maxMipLevel: 8
   depthBias: 0.1
+  hizPyramid: []
   hizComputeShader: {fileID: 7200000, guid: cebfac618212fca41a611458798d5cde, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
