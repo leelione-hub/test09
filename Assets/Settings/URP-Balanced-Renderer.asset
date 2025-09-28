@@ -49,7 +49,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Active: 1
   renderPassEvent: 250
-  maxMipLevel: 8
+  maxMipLevel: 9
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0

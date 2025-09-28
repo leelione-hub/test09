@@ -18,7 +18,14 @@ public class HizManager : MonoBehaviour
     
     // Hi-Z金字塔的尺寸
     private int hizWidth, hizHeight;
-    
+
+    public static HizManager Ins;
+
+    private void Awake()
+    {
+        Ins = this;
+    }
+
     void Start()
     {
         mainCamera = Camera.main;
@@ -35,7 +42,7 @@ public class HizManager : MonoBehaviour
 
     private void Update()
     {
-        hizTexture = staticRT;
+        //hizTexture = staticRT;
     }
 
     void InitializeHizPyramid()

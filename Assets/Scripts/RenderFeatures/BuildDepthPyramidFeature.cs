@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -26,11 +27,12 @@ public class BuildDepthPyramidPass : ScriptableRenderPass
 {
     private int _pyramidMaxLevel;
     private RenderTexture pyramidTexture;
-    private RenderTexture mipTexture;
+    //private RenderTexture mipTexture;
+    private List<RenderTexture> listMipTexture;
     public int maxMipLevel;
     private Material copyMat;
     private int baseSize = 1024;
-    private int DepthPyramidID = Shader.PropertyToID("DepthPyramidTex");
+    private int DepthPyramidID = Shader.PropertyToID("_HizDepthTexture");
     private int ID_DepthTexture = Shader.PropertyToID("_DepthTexture");
     public BuildDepthPyramidPass()
     {
@@ -41,20 +43,18 @@ public class BuildDepthPyramidPass : ScriptableRenderPass
     {
         CommandBuffer cmd = CommandBufferPool.Get("BuildDepthPyramid");
         var depthTarget = renderingData.cameraData.renderer.cameraDepthTargetHandle;
-        // var h= depthTarget.rt.height;
-        // var w = depthTarget.rt.width;
-        pyramidTexture = RenderTexture.GetTemporary(baseSize, baseSize, 0, RenderTextureFormat.RGHalf);
-        pyramidTexture.filterMode = FilterMode.Point;
-        pyramidTexture.autoGenerateMips = false;
+        pyramidTexture = new RenderTexture(baseSize, baseSize, 0, RenderTextureFormat.RHalf, maxMipLevel + 1);
         pyramidTexture.useMipMap = true;
-        //Graphics.CopyTexture(depthTarget, 0, 0, pyramidTexture, 0, 0);
+        pyramidTexture.filterMode = FilterMode.Point;
         RenderTexture lastTexture = null;
+        listMipTexture = new List<RenderTexture>();
         try
         {
             for (int i = 0; i <= maxMipLevel; i++)
             {
-                mipTexture = RenderTexture.GetTemporary(baseSize >> i, baseSize >> i, 0, RenderTextureFormat.RGHalf);
-                mipTexture.name = "MipTexture";
+                var mipTexture = RenderTexture.GetTemporary(baseSize >> i, baseSize >> i, 0, RenderTextureFormat.RHalf);
+                mipTexture.name = "MipTexture_"+i;
+                listMipTexture.Add(mipTexture);
                 if (lastTexture == null)
                 {
                     Graphics.Blit(depthTarget.rt, mipTexture);
@@ -67,24 +67,31 @@ public class BuildDepthPyramidPass : ScriptableRenderPass
 
                 Graphics.CopyTexture(mipTexture, 0, 0, pyramidTexture, 0, i);
                 context.ExecuteCommandBuffer(cmd);
-                //Graphics.CopyTexture(mipTexture, 0, 0, pyramidTexture, 0, i);
                 lastTexture = mipTexture;
             }
 
             Shader.SetGlobalTexture(DepthPyramidID, pyramidTexture);
-            HizManager.staticRT = pyramidTexture;
+            if (HizManager.Ins != null)
+            {
+                HizManager.Ins.hizTexture = pyramidTexture;
+            }
         }
         finally
         {
             RenderTexture.ReleaseTemporary(lastTexture);
-            RenderTexture.ReleaseTemporary(mipTexture);
+            foreach (var miptex in listMipTexture)
+            {
+                RenderTexture.ReleaseTemporary(miptex);
+            }
             CommandBufferPool.Release(cmd);
         }
     }
 
     public override void FrameCleanup(CommandBuffer cmd)
     {
-        RenderTexture.ReleaseTemporary(pyramidTexture);
+        //pyramidTexture.Release();
+        pyramidTexture = null;
+        //RenderTexture.ReleaseTemporary(pyramidTexture);
         //Debug.Log("FrameCleanup");
     }
     

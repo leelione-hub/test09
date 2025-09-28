@@ -911,6 +911,8 @@ MonoBehaviour:
   dataPath: TerrainTrees.json
   cullingComputeShader: {fileID: 7200000, guid: 3c8811157cec429a939fd59ce29d3dde,
     type: 3}
+  hizCullingComputeShader: {fileID: 7200000, guid: cebfac618212fca41a611458798d5cde,
+    type: 3}
   treeBoundsRadius: 2
   GPUInstanceON: 1
 --- !u!114 &1907860314
@@ -928,8 +930,8 @@ MonoBehaviour:
   enableHizCulling: 1
   maxMipLevel: 8
   depthBias: 0.1
-  hizPyramid: []
   hizComputeShader: {fileID: 7200000, guid: cebfac618212fca41a611458798d5cde, type: 3}
+  hizTexture: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -9,36 +9,11 @@ using Debug = UnityEngine.Debug;
 //https://chat.deepseek.com/share/2fka9egwa83rwnprk6
 public class IndirectTreeRenderer : MonoBehaviour
 {
-    [System.Serializable]
-    public class TreePrototypeRenderer
-    {
-        public Mesh mesh;
-        public Material material;
-        public List<Matrix4x4> matrices = new List<Matrix4x4>();
-        public List<Matrix4x4> normalMatrices = new List<Matrix4x4>();
-        public List<Vector3> worldPosition = new List<Vector3>();
-        public float boundsRadius = 2f;
-        
-        // 用于间接渲染
-        public ComputeBuffer matrixBuffer;
-        public ComputeBuffer normalMatrixBuffer;
-        public ComputeBuffer argsBuffer;
-        public ComputeBuffer culledMatrixBuffer;
-        public ComputeBuffer culledNormalMatrixBuffer;
-        public uint[] args = new uint[5] { 0, 0, 0, 0, 0 };
-        
-        //用于视锥剔除
-        public ComputeBuffer inputBuffer;
-        public ComputeBuffer inputNormalBuffer;
-        public ComputeBuffer outputBuffer;
-        public ComputeBuffer outputNormalBuffer;
-        public ComputeBuffer counterBuffer;
-    }
-
     public Terrain terrain;
     public string dataPath = "TerrainTrees.json";
 
     public ComputeShader cullingComputeShader;
+    public ComputeShader hizCullingComputeShader;
     public float treeBoundsRadius = 2f;
     
     private List<TreePrototypeRenderer> treeRenderers = new List<TreePrototypeRenderer>();
@@ -53,10 +28,15 @@ public class IndirectTreeRenderer : MonoBehaviour
     public bool GPUInstanceON = true;
     private const string GPUINSTANCE_ON = "_GPUINSTANCE_ON";
 
+    private FrustumCulling _frustumCulling;
+    private HizCulling _hizCulling;
+
     void Start()
     {
         mainCamera = Camera.main;
         LoadAndSetupTrees();
+        _frustumCulling = new FrustumCulling(cullingComputeShader);
+        _hizCulling = new HizCulling(hizCullingComputeShader,mainCamera);
     }
 
     void LoadAndSetupTrees()
@@ -218,13 +198,14 @@ public class IndirectTreeRenderer : MonoBehaviour
                 frusrumPlanes[i].distance
             );
         }
-        
+        // _frustumCulling.UpdateFrustumPlanes(frustumPlanesVector);
         // 对每种树木类型进行视锥剔除
         foreach (var renderer in treeRenderers)
         {
             if (renderer.mesh != null && renderer.material != null && renderer.inputBuffer != null)
             {
-                PerformFrustumCulling(renderer);
+                // _frustumCulling.Culling(renderer);
+                _hizCulling.Culling(renderer);
                 DrawCulledTrees(renderer);
             }
         }
