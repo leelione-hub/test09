@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.1802907, g: 0.22573434, b: 0.30694622, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657898, g: 0.4964133, b: 0.5748178, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -181,7 +181,7 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
+  near clip plane: 1
   far clip plane: 1000
   field of view: 75
   orthographic: 0
@@ -210,7 +210,7 @@ Transform:
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
   m_LocalRotation: {x: 0.016734352, y: 0.39687598, z: -0.0015761696, w: 0.91771835}
-  m_LocalPosition: {x: 297.1222, y: 5.950001, z: 458.07605}
+  m_LocalPosition: {x: 246.2, y: 8.2, z: 410.2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -655,6 +655,11 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5414479659515835897, guid: f033d0dd402fccb40a4dd3a997b5cedf,
+        type: 3}
+      propertyPath: m_DynamicOccludee
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5885704791094290415, guid: f033d0dd402fccb40a4dd3a997b5cedf,
         type: 3}
       propertyPath: m_Name
@@ -915,6 +920,7 @@ MonoBehaviour:
     type: 3}
   treeBoundsRadius: 2
   GPUInstanceON: 1
+  eCullingType: 2
 --- !u!114 &1907860314
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -932,6 +938,141 @@ MonoBehaviour:
   depthBias: 0.1
   hizComputeShader: {fileID: 7200000, guid: cebfac618212fca41a611458798d5cde, type: 3}
   hizTexture: {fileID: 0}
+--- !u!1 &2059707770
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2059707772}
+  - component: {fileID: 2059707771}
+  m_Layer: 0
+  m_Name: Mgr
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2059707771
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2059707770}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4ff4051e75dc9443879b116bd65c930, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fpsCounter:
+    enabled: 1
+    anchor: 0
+    color: {r: 0.33333334, g: 0.85490197, b: 0.4, a: 1}
+    style: 1
+    updateInterval: 0.5
+    warningLevelValue: 50
+    criticalLevelValue: 20
+    resetAverageOnNewScene: 1
+    resetMinMaxOnNewScene: 1
+    minMaxIntervalsToSkip: 3
+    realtimeFPSFoldout: 0
+    realtimeFPS: 1
+    milliseconds: 1
+    averageFoldout: 0
+    average: 1
+    averageMilliseconds: 1
+    averageNewLine: 1
+    averageSamples: 50
+    minMaxFoldout: 0
+    minMax: 1
+    minMaxMilliseconds: 0
+    minMaxNewLine: 1
+    minMaxTwoLines: 0
+    renderFoldout: 0
+    render: 0
+    renderNewLine: 1
+    renderAutoAdd: 1
+    colorWarning: {r: 0.9254902, g: 0.8784314, b: 0.34509805, a: 1}
+    colorCritical: {r: 0.9764706, g: 0.35686275, b: 0.35686275, a: 1}
+    colorRender: {r: 0.654902, g: 0.43137255, b: 0.81960785, a: 1}
+  memoryCounter:
+    enabled: 0
+    anchor: 0
+    color: {r: 0.91764706, g: 0.93333334, b: 0.39607844, a: 1}
+    style: 1
+    updateInterval: 0.5
+    precise: 1
+    total: 1
+    allocated: 1
+    monoUsage: 0
+    gfx: 1
+  deviceInfoCounter:
+    enabled: 0
+    anchor: 2
+    color: {r: 0.6745098, g: 0.6745098, b: 0.6745098, a: 1}
+    style: 0
+    platform: 1
+    cpuModel: 1
+    cpuModelNewLine: 1
+    gpuModel: 1
+    gpuModelNewLine: 1
+    gpuApi: 1
+    gpuApiNewLine: 1
+    gpuSpec: 1
+    gpuSpecNewLine: 1
+    ramSize: 1
+    ramSizeNewLine: 1
+    screenData: 1
+    screenDataNewLine: 1
+    deviceModel: 0
+    deviceModelNewLine: 1
+  hotKey: 96
+  circleGesture: 0
+  hotKeyCtrl: 0
+  hotKeyShift: 0
+  hotKeyAlt: 0
+  keepAlive: 1
+  operationMode: 2
+  forceFrameRate: 1
+  forcedFrameRate: 200
+  background: 1
+  backgroundColor: {r: 0, g: 0, b: 0, a: 0.60784316}
+  backgroundPadding: 5
+  shadow: 0
+  shadowColor: {r: 0, g: 0, b: 0, a: 0.5019608}
+  shadowDistance: {x: 1, y: -1}
+  outline: 0
+  outlineColor: {r: 0, g: 0, b: 0, a: 0.5019608}
+  outlineDistance: {x: 1, y: -1}
+  autoScale: 0
+  scaleFactor: 2
+  labelsFont: {fileID: 12800000, guid: fb80074802966ad438ec681fae1be1c2, type: 3}
+  fontSize: 14
+  lineSpacing: 1
+  countersSpacing: 0
+  paddingOffset: {x: 5, y: 5}
+  pixelPerfect: 1
+  sortingOrder: 10000
+  lookAndFeelFoldout: 0
+  advancedFoldout: 0
+--- !u!4 &2059707772
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2059707770}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 288.49942, y: 0.5523123, z: 464.20804}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -944,3 +1085,4 @@ SceneRoots:
   - {fileID: 1750033431}
   - {fileID: 1563169248}
   - {fileID: 1582918788}
+  - {fileID: 2059707772}

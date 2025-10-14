@@ -2,8 +2,16 @@
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
+#define BASE_RESOLUTION 4096
+#define BASE_RESOLUTION_X 1920
+#define BASE_RESOLUTION_Y 1080
+#define MAX_MIPMAP_LEVEL 8
+
 StructuredBuffer<float4x4> InputMatrices;
 RWStructuredBuffer<float4x4> OutputMatrices;
+
+StructuredBuffer<float4x4> InputNormalMatrices;
+RWStructuredBuffer<float4x4> OutputNormalMatrices;
 
 RWStructuredBuffer<uint> VisibilityFlags;
 RWStructuredBuffer<uint> VisibleCount;
@@ -11,88 +19,105 @@ RWStructuredBuffer<uint> VisibleCount;
 // 实例总数
 int InstanceCount;
 
-TEXTURE2D(_HizDepthTexture);
-SAMPLER(sampler_HizDepthTexture);
+// TEXTURE2D(_HizDepthTexture);
+// SAMPLER(sampler_HizDepthTexture);
 
-float4x4 _V;
-float4x4 _P;
+Texture2D<float> _HizDepthTexture;
 
-void CalculateScreenBounds(
-    float3 worldPos,
-    float radius,
-    out float2 minUV,
-    out float2 maxUV,
-    out float viewDepth,
-    out float ndcDepth
-)
-{
-    // 1. 转到视图空间
-    float3 viewPos = mul(_V, float4(worldPos, 1.0)).xyz;
-    viewDepth = -viewPos.z; // 正深度
+float4x4 _CameraViewMatrix;
+float4x4 _CameraProjectionMatrix;
 
-    // 2. 转到裁剪空间
-    float4 clipPos = mul(_P, float4(viewPos, 1.0));
+// 视锥体平面（6个平面）
+float4 FrustumPlanes[6];
 
-    // 3. 转到 NDC → UV
-    float3 ndc = clipPos.xyz / clipPos.w;
-    float2 screenUV = ndc.xy * 0.5 + 0.5;
-    ndcDepth = ndc.z;
-    // 4. ✅ 正确计算 UV 空间半径
-    // 投影矩阵的 [0][0] 和 [1][1] 包含 FOV 和 aspect 信息
-    float ndcRadiusX = (radius * _P[0][0]) / viewDepth;
-    float ndcRadiusY = (radius * _P[1][1]) / viewDepth;
+// 从世界空间坐标计算屏幕空间边界
+void CalculateScreenBounds(float3 worldPos, float radius, out float2 minUV, out float2 maxUV, out float viewDepth, out float ndcDepth) {
+    // 1. 转换为相机空间
+    float4 viewPos = mul(_CameraViewMatrix, float4(worldPos, 1.0));
+    viewDepth = viewPos.z;
     
-    // 转为 UV 空间半径（NDC 范围 [-1,1] → UV 范围 [0,1]，所以 *0.5）
-    float2 uvRadius = float2(ndcRadiusX, ndcRadiusY) * 0.5;
-
-    // 5. 计算边界（不建议钳制，除非必要）
-    minUV = screenUV - uvRadius;
-    maxUV = screenUV + uvRadius;
-
-    // 可选：钳制（但会丢失屏幕外信息）
-    // minUV = clamp(minUV, 0.0, 1.0);
-    // maxUV = clamp(maxUV, 0.0, 1.0);
+    // 2. 转换为NDC (归一化设备坐标)
+    float4 ndcPos = mul(_CameraProjectionMatrix, viewPos);
+    ndcPos.xyz /= ndcPos.w;
+    ndcDepth = ndcPos.z; // NDC深度 [-1,1]
+    
+    // 3. 转换为屏幕UV (0-1)
+    float2 screenUV = (ndcPos.xy * 0.5) + 0.5;
+    
+    // 4. 计算包围盒 (基于物体半径)
+    float2 screenRadius = float2(radius * _CameraProjectionMatrix._11, radius * _CameraProjectionMatrix._22) / viewDepth * 0.5;
+    minUV = screenUV - screenRadius;
+    maxUV = screenUV + screenRadius;
+    
+    // 5. 限制在屏幕范围内
+    minUV = clamp(minUV, 0.0, 1.0);
+    maxUV = clamp(maxUV, 0.0, 1.0);
 }
 
-bool IsOccludedByHiz(float3 worldPos,float radius)
-{
-    float2 minUV,maxUV;
-    float viewDepth;
-    float ndcDepth;
-    CalculateScreenBounds(worldPos,radius,minUV,maxUV,viewDepth,ndcDepth);
-
+// 检查物体是否被Hi-Z遮挡
+bool IsOccludedByHiz(float3 worldPos, float radius) {
+    float2 minUV, maxUV;
+    float viewDepth, ndcDepth;
+    CalculateScreenBounds(worldPos, radius, minUV, maxUV, viewDepth, ndcDepth);
+    
+    // 计算屏幕空间包围盒大小
     float2 boundSize = maxUV - minUV;
-    float maxSize = max(boundSize.x,boundSize.y);
-
-    const int2 offsetsUv[] = {
-        int2(0,0),
-        int2(0,1),
-        int2(1,0),
-        int2(1,1)
-    };
-
-    int mipmaplevel = 0;
-    if (maxSize <= 0.5) mipmaplevel = 9;
-    if (maxSize <= 0.25) mipmaplevel = 8;
-    if (maxSize <= 0.125) mipmaplevel = 7;
-    if (maxSize <= 0.0625) mipmaplevel = 6;
-    if (maxSize <= 0.03125) mipmaplevel = 5;
-    if (maxSize <= 0.015625) mipmaplevel = 4;
-    if (maxSize <= 0.0078125) mipmaplevel = 3;
-    if (maxSize <= 0.00390625) mipmaplevel = 2;
-    if (maxSize <= 0.001953125) mipmaplevel = 1;
+    float maxSize = max(boundSize.x, boundSize.y);
     
-    float maxDepth = 0.5;
-    for(int i = 0; i < 4; i++)
-    {
-        float2 uv = lerp(minUV , maxUV,offsetsUv[i]) * 1024.0;
-        uint2 realUV = uint2(uv) >> mipmaplevel;
-        float depth = _HizDepthTexture.Load(uint3(realUV,mipmaplevel));
-        maxDepth = max(depth,maxDepth);
+    // ✅ 正确：物体越大 (maxSize越大) -> 使用越高mipmap level (越低分辨率)
+    int mipmapLevel = 8; // 默认最高mipmap level (最低分辨率)
+    if (maxSize > 0.5) mipmapLevel = 8;    // 50%以上屏幕 -> level 8 (4x4)
+    else if (maxSize > 0.25) mipmapLevel = 7; // 25-50% -> level 7 (8x8)
+    else if (maxSize > 0.125) mipmapLevel = 6; // 12.5-25% -> level 6 (16x16)
+    else if (maxSize > 0.0625) mipmapLevel = 5; // 6.25-12.5% -> level 5 (32x32)
+    else if (maxSize > 0.03125) mipmapLevel = 4; // 3.125-6.25% -> level 4 (64x64)
+    else if (maxSize > 0.015625) mipmapLevel = 3; // 1.5625-3.125% -> level 3 (128x128)
+    else if (maxSize > 0.0078125) mipmapLevel = 2; // 0.78125-1.5625% -> level 2 (256x256)
+    else if (maxSize > 0.00390625) mipmapLevel = 1; // 0.390625-0.78125% -> level 1 (512x512)
+    else if (maxSize > 0.001953125) mipmapLevel = 0; // 0.1953125-0.390625% -> level 0 (1024x1024)
+    else mipmapLevel = 0; // 非常小的物体 -> level 0
+    
+    // Hi-Z纹理存储的是该区域的最大深度（最远深度）
+    // 如果物体深度 < Hi-Z深度，说明物体在Hi-Z区域前方（被遮挡）
+    float normalizedDepth = (ndcDepth + 1.0) * 0.5; // [-1,1] -> [0,1]
+    float realDepth = LinearEyeDepth(normalizedDepth,_ZBufferParams);
+    // return realDepth < 100;
+    //return ndcDepth > 0.5;
+    
+    // 在当前mipmap level上采样4个角点
+    float maxHizDepth = 0.0;
+    const int2 offsets[4] = {int2(0,0), int2(0,1), int2(1,0), int2(1,1)};
+    
+    int mipSizeX = BASE_RESOLUTION_X >> mipmapLevel; // 当前mipmap level的分辨率
+    int mipSizeY = BASE_RESOLUTION_Y >> mipmapLevel;
+    uint2 mipSize = uint2(mipSizeX,mipSizeY);
+    
+    for (int i = 0; i < 4; i++) {
+        float2 uv = lerp(minUV, maxUV, float2(offsets[i].x, offsets[i].y));
+        uv = clamp(uv, 0.0, 1.0); // 防止越界
+        
+        // 计算当前mipmap level的像素坐标
+        uint2 coord = uint2(uv * mipSize);
+        float depth = _HizDepthTexture.Load(uint3(coord, mipmapLevel));
+        
+        maxHizDepth = max(maxHizDepth, depth);
     }
-    return maxDepth > ndcDepth;
+    float realHizDepth = LinearEyeDepth(maxHizDepth,_ZBufferParams);
+    return realDepth > realHizDepth + 10; // 被遮挡
 }
 
+// 判断点是否在视锥体内
+bool IsInFrustum(float3 position, float radius)
+{
+    for (int i = 0; i < 6; i++)
+    {
+        float4 plane = FrustumPlanes[i];
+        float distance = dot(plane.xyz, position) + plane.w;
+        if (distance < -radius)
+            return false;
+    }
+    return true;
+}
 
 void Process(uint3 id)
 {
@@ -106,19 +131,27 @@ void Process(uint3 id)
         return;
     }
     float4x4 matrix_x4 = InputMatrices[id.x];
+    float4x4 mattix_normal = InputNormalMatrices[id.x];
     //float3 position = float3(matrix_x4[0][3], matrix_x4[1][3], matrix_x4[2][3]);
     float3 worldPos = float3(matrix_x4._m03_m13_m23);
-    float radius = 2;
-    bool hizCulled = IsOccludedByHiz(worldPos,radius);
+    float radius = 4;
 
-    if (!hizCulled)
+    bool isVisible = IsInFrustum(worldPos, radius);
+
+    if(isVisible)
     {
-        // 使用原子操作确保顺序写入
-        uint outputIndex;
-        InterlockedAdd(VisibleCount[0], 1, outputIndex);
+        bool hizCulled = IsOccludedByHiz(worldPos,radius);
+
+        if (!hizCulled)
+        {
+            // 使用原子操作确保顺序写入
+            uint outputIndex;
+            InterlockedAdd(VisibleCount[0], 1, outputIndex);
         
-        // 按顺序写入输出缓冲区
-        OutputMatrices[outputIndex] = matrix_x4;
+            // 按顺序写入输出缓冲区
+            OutputMatrices[outputIndex] = matrix_x4;
+            OutputNormalMatrices[outputIndex] = mattix_normal;
+        }
     }
 }
 

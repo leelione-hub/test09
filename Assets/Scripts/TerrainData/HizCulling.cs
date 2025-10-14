@@ -5,11 +5,17 @@ public class HizCulling : IGPUCulling
     public ComputeShader cullingComputeShader;
     public Camera _camera;
     private const int THREAD_GROUP_SIZE = 64;
+    private Vector4[] frustumPlanesVector = new Vector4[6];
 
     public HizCulling(ComputeShader computeShader, Camera camera)
     {
         this.cullingComputeShader = computeShader;
         this._camera = camera;
+    }
+    
+    public void UpdateFrustumPlanes(Vector4[] frustumPlanesVector)
+    {
+        this.frustumPlanesVector = frustumPlanesVector;
     }
     
     public void Culling(GPUCullingData data)
@@ -22,13 +28,16 @@ public class HizCulling : IGPUCulling
         ComputeBuffer visibleCountBuffer = new ComputeBuffer(1, sizeof(uint));
         // 设置Compute Shader参数
         cullingComputeShader.SetBuffer(0, "InputMatrices", renderer.inputBuffer);
+        cullingComputeShader.SetBuffer(0, "InputNormalMatrices", renderer.inputNormalBuffer);
         cullingComputeShader.SetBuffer(0, "OutputMatrices", renderer.outputBuffer);
+        cullingComputeShader.SetBuffer(0, "OutputNormalMatrices", renderer.outputNormalBuffer);
         cullingComputeShader.SetBuffer(0, "VisibilityFlags", visibilityBuffer);
         cullingComputeShader.SetBuffer(0, "VisibleCount", visibleCountBuffer);
         cullingComputeShader.SetInt("InstanceCount", instanceCount);
-        cullingComputeShader.SetMatrix("_V", _camera.worldToCameraMatrix);
-        cullingComputeShader.SetMatrix("_P",_camera.projectionMatrix);
-        
+        cullingComputeShader.SetMatrix("_CameraViewMatrix", _camera.worldToCameraMatrix);
+        cullingComputeShader.SetMatrix("_CameraProjectionMatrix",_camera.projectionMatrix);
+        cullingComputeShader.SetTexture(0, "_HizDepthTexture", HizManager.Ins.hizTexture);
+        cullingComputeShader.SetVectorArray("FrustumPlanes", frustumPlanesVector);
         // 计算线程组数量
         int threadGroups = Mathf.CeilToInt((float)instanceCount / THREAD_GROUP_SIZE);
         

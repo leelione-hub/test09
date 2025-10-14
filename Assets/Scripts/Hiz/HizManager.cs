@@ -57,7 +57,7 @@ public class HizManager : MonoBehaviour
             return;
         }
 
-        BuildHizPyramid(context);
+        // BuildHizPyramid(context);
     }
 
     void BuildHizPyramid(ScriptableRenderContext context)

@@ -45,6 +45,7 @@ Shader "Unlit/BakeDepthPyramid"
                 depth.y = tex2D(mainTex, uv1);
                 depth.z = tex2D(mainTex, uv2);
                 depth.w = tex2D(mainTex, uv3);
+            	
 #if defined(UNITY_REVERSED_Z)
                 return min(min(depth.x, depth.y), min(depth.z, depth.w));
 #else

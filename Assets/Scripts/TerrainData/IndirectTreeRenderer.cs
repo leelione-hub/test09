@@ -9,6 +9,14 @@ using Debug = UnityEngine.Debug;
 //https://chat.deepseek.com/share/2fka9egwa83rwnprk6
 public class IndirectTreeRenderer : MonoBehaviour
 {
+    
+    public enum CullingType
+    {
+        None,
+        FrustumCulling,
+        HizCulling
+    }
+    
     public Terrain terrain;
     public string dataPath = "TerrainTrees.json";
 
@@ -27,6 +35,8 @@ public class IndirectTreeRenderer : MonoBehaviour
 
     public bool GPUInstanceON = true;
     private const string GPUINSTANCE_ON = "_GPUINSTANCE_ON";
+
+    public CullingType eCullingType;
 
     private FrustumCulling _frustumCulling;
     private HizCulling _hizCulling;
@@ -198,14 +208,37 @@ public class IndirectTreeRenderer : MonoBehaviour
                 frusrumPlanes[i].distance
             );
         }
-        // _frustumCulling.UpdateFrustumPlanes(frustumPlanesVector);
+
+        if (eCullingType == CullingType.FrustumCulling)
+        {
+            _frustumCulling.UpdateFrustumPlanes(frustumPlanesVector);
+        }
+        else if (eCullingType == CullingType.HizCulling)
+        {
+            _hizCulling.UpdateFrustumPlanes(frustumPlanesVector);
+        }
+        
         // 对每种树木类型进行视锥剔除
         foreach (var renderer in treeRenderers)
         {
             if (renderer.mesh != null && renderer.material != null && renderer.inputBuffer != null)
             {
-                // _frustumCulling.Culling(renderer);
-                _hizCulling.Culling(renderer);
+                if (eCullingType == CullingType.HizCulling)
+                {
+                    _hizCulling.Culling(renderer);
+                }
+                else if(eCullingType == CullingType.FrustumCulling)
+                {
+                    _frustumCulling.Culling(renderer);
+                }
+                else
+                {
+                    renderer.args[1] = (uint)renderer.inputBuffer.count;
+                    renderer.argsBuffer.SetData(renderer.args);
+                }
+                renderer.material.SetBuffer("positionBuffer", eCullingType == CullingType.None ? renderer.inputBuffer : renderer.outputBuffer);
+                renderer.material.SetBuffer("normalBuffer",
+                    eCullingType == CullingType.None ? renderer.inputNormalBuffer : renderer.outputNormalBuffer);
                 DrawCulledTrees(renderer);
             }
         }
