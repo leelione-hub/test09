@@ -87,7 +87,6 @@ public class BuildDepthPyramidPass : ScriptableRenderPass
                 HizManager.Ins.hizTexture = pyramidTexture;
                 //HizManager.Ins.hizComputeShader.SetTexture(0, "_HizDepthTexture", pyramidTexture);
             }
-            
         }
         finally
         {

@@ -46,6 +46,17 @@ public class HizCulling : IGPUCulling
         // 执行Compute Shader
         cullingComputeShader.Dispatch(0, threadGroups, 1, 1);
         
+        // cullingComputeShader.SetInt("IndexCountPerInstance",(int)renderer.mesh.GetIndexCount(0));
+        // cullingComputeShader.SetInt("StartIndexLocation", (int)renderer.mesh.GetIndexStart(0));
+        // cullingComputeShader.SetInt("BaseVertexLocation", (int)renderer.mesh.GetBaseVertex(0));
+        // cullingComputeShader.SetInt("StartInstanceLocation", 0);
+        //
+        // cullingComputeShader.SetBuffer(0, "VisibleCount", visibleCountBuffer);
+        // cullingComputeShader.SetBuffer(1,"DrawArgs", renderer.argsBuffer);
+        //
+        // // 执行参数更新核函数
+        // cullingComputeShader.Dispatch(1, 1, 1, 1);
+        
         // 获取可见实例数量
         uint[] visibleCountArray = new uint[1];
         visibleCountBuffer.GetData(visibleCountArray);
