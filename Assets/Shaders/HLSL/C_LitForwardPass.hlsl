@@ -24,6 +24,7 @@ struct Attributes
 {
     float4 positionOS   : POSITION;
     uint instanceID     : SV_InstanceID;
+    float4 color        : COLOR;
     float3 normalOS     : NORMAL;
     float4 tangentOS    : TANGENT;
     float2 texcoord     : TEXCOORD0;
@@ -148,6 +149,8 @@ Varyings LitPassVertex(Attributes input)
     // this is required to avoid skewing the direction during interpolation
     // also required for per-vertex lighting and SH evaluation
     VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
+
+    input.positionOS.xyz += _SinTime.w * 0.1 * input.positionOS.y * input.color.rgb;
     
     #ifdef _GPUINSTANCE_ON
     //重新计算世界坐标

@@ -19,6 +19,7 @@ struct Attributes
     uint instanceID     : SV_InstanceID;
     float3 normalOS     : NORMAL;
     float2 texcoord     : TEXCOORD0;
+    float4 color        : COLOR;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
@@ -69,6 +70,7 @@ Varyings ShadowPassVertex(Attributes input)
         output.uv = TRANSFORM_TEX(input.texcoord, _BaseMap);
     #endif
 
+    input.positionOS.xyz += _SinTime.w * 0.1 * input.positionOS.y * input.color.rgb;
     output.positionCS = GetShadowPositionHClip(input);
     return output;
 }

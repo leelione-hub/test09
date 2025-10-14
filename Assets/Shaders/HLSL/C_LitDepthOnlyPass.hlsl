@@ -11,6 +11,7 @@ struct Attributes
     float4 position     : POSITION;
     uint instanceID     : SV_InstanceID;
     float2 texcoord     : TEXCOORD0;
+    float4 color        : COLOR;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
@@ -31,7 +32,9 @@ Varyings DepthOnlyVertex(Attributes input)
     Varyings output = (Varyings)0;
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-
+    
+    input.position.xyz += _SinTime.w * 0.1 * input.position.y * input.color.rgb;
+    
     #if defined(_ALPHATEST_ON)
     output.uv = TRANSFORM_TEX(input.texcoord, _BaseMap);
     #endif
