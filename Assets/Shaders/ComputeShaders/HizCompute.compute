@@ -103,7 +103,7 @@ bool IsOccludedByHiz(float3 worldPos, float radius) {
         maxHizDepth = max(maxHizDepth, depth);
     }
     float realHizDepth = LinearEyeDepth(maxHizDepth,_ZBufferParams);
-    return realDepth > realHizDepth + 10; // 被遮挡
+    return realDepth > realHizDepth + 1; // 被遮挡
 }
 
 // 判断点是否在视锥体内

@@ -47,6 +47,11 @@ public class IndirectTreeRenderer : MonoBehaviour
         LoadAndSetupTrees();
         _frustumCulling = new FrustumCulling(cullingComputeShader);
         _hizCulling = new HizCulling(hizCullingComputeShader,mainCamera);
+        var terrain = this.GetComponent<Terrain>();
+        if (terrain != null)
+        {
+            terrain.drawTreesAndFoliage = false;
+        }
     }
 
     void LoadAndSetupTrees()

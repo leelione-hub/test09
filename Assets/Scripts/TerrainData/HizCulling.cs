@@ -26,6 +26,8 @@ public class HizCulling : IGPUCulling
         // 创建可见性标记缓冲区
         ComputeBuffer visibilityBuffer = new ComputeBuffer(instanceCount, sizeof(uint));
         ComputeBuffer visibleCountBuffer = new ComputeBuffer(1, sizeof(uint));
+        uint[] zero = { 0 };
+        visibleCountBuffer.SetData(zero);
         // 设置Compute Shader参数
         cullingComputeShader.SetBuffer(0, "InputMatrices", renderer.inputBuffer);
         cullingComputeShader.SetBuffer(0, "InputNormalMatrices", renderer.inputNormalBuffer);
