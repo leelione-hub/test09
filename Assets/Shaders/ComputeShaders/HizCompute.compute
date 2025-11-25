@@ -4,8 +4,8 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
 #define BASE_RESOLUTION 4096
-#define BASE_RESOLUTION_X 1920
-#define BASE_RESOLUTION_Y 1080
+#define BASE_RESOLUTION_X 1024
+#define BASE_RESOLUTION_Y 1024
 #define MAX_MIPMAP_LEVEL 8
 
 StructuredBuffer<float4x4> InputMatrices;
