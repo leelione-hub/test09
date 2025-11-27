@@ -83,6 +83,7 @@ half4 Frag(Varyings input) : SV_Target
     float3 L = normalize(light.direction);
     float3 H = normalize(V + L);
     
+    
     float NdotL = saturate(dot(N, L));
     float NdotV = saturate(dot(N, V));
     float NdotH = saturate(dot(N, H));
@@ -90,15 +91,33 @@ half4 Frag(Varyings input) : SV_Target
     
     
     // ===== Diffuse =====
-    half3 diffuseTerm = DisneyDiffuse(NdotV, NdotL, LdotH, roughness, baseColor);
-    diffuseTerm = URPDiffuse(metallic,baseColor);
+    //half3 diffuseTerm = DisneyDiffuse(NdotV, NdotL, LdotH, roughness, baseColor);
+    half3 diffuseTerm = URPDiffuse(metallic,baseColor);
     
     // ===== Specular GGX =====
     float3 F0 = lerp(float3(0.04, 0.04, 0.04), baseColor, metallic);
     half3 F = Custom_SchlickFresnel(F0,LdotH);
-    half D = Custom_D_GGX(NdotH,roughness);
+    half D = 0;
+    
+#ifdef _ANISOTROPY
+    float3 T = normalize(tangentWS - dot(tangentWS,N) * N);
+    float3 B = normalize(cross(N,T)) * input.tangentWS.w;
+    real aspect = sqrt(1.0 - _Anisotropy * 0.9);
+    real ax = max(0.001,Sq(roughness) / aspect);
+    real ay = max(0.001,Sq(roughness) * aspect);
+    D = Custom_D_GGX_Anisotropic(NdotH,H,T,B,ax,ay);
+#else
+    D = Custom_D_GGX(NdotH,roughness);
+#endif
     half G = Custom_V_SmithGGX(NdotV,NdotL,roughness);
     half3 specularTerm = (D * G * F) / max(4.0 * NdotV * NdotL,1e-7);
+    
+    // ====== Sheen ======、
+    half3 sheenTerm = half3(0,0,0);
+#ifdef _SHEEN
+    half3 sheenColor = lerp(half3(1,1,1),baseColor,_SheenTint);
+    sheenTerm = DisneySheen(LdotH,sheenColor) * _Sheen;
+#endif
 
     if (NdotL >= 0.0)
     {
@@ -106,14 +125,14 @@ half4 Frag(Varyings input) : SV_Target
         real3 kS = F;
         real3 kD = (1.0 - kS) * (1.0 - metallic);
         
-        finalColor.rgb += (kD * diffuseTerm + specularTerm) * light.color * (light.distanceAttenuation * light.shadowAttenuation) * NdotL;
+        finalColor.rgb += (kD * diffuseTerm + specularTerm + sheenTerm) * light.color * (light.distanceAttenuation * light.shadowAttenuation) * NdotL;
     }
 
-    # ifdef _EMISSION
+# ifdef _EMISSION
     // ===== Emission =====
     half3 emissionColor = SAMPLE_TEXTURE2D(_EmissionMap,sampler_EmissionMap,input.uv).rgb * _EmissionColor.rgb;
     finalColor.rgb += emissionColor;
-    #endif
+#endif
     
     // ===== IBL =====
     float3 bakedGI = SampleSH(N);
@@ -124,12 +143,22 @@ half4 Frag(Varyings input) : SV_Target
     float3 reflection = GlossyEnvironmentReflection(reflectVector, roughness, 1.0);
     float3 F_IBL = Custom_SchlickFresnel(F0 ,NdotV);
     float3 specularGI = reflection * F_IBL;
-
-    #ifdef _ALPHATEST_ON
+    
+#ifdef _ALPHATEST_ON
         clip(_Cutoff - alpha);
-    #endif
+#endif
 
     finalColor.rgb += (diffuseGI + specularGI);
+
+# ifdef _CLEARCOAT
+    // ====== ClearCoat
+    real coatRoughness =lerp(0.1,0.001,_ClearcoatGloss);
+    real3 R_Coat = reflect(-V,N);
+    real3 coatReflection = GlossyEnvironmentReflection(R_Coat,
+        coatRoughness,occlusion);
+    real F_Coat_IBL = F_Schlick(NdotV,0.04) * _Clearcoat;
+    finalColor.rgb = finalColor * (1.0 - F_Coat_IBL) + coatReflection * F_Coat_IBL;
+#endif
     
     return finalColor;
 }

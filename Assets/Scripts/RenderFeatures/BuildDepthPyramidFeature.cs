@@ -19,6 +19,10 @@ public class BuildDepthPyramidFeature : ScriptableRendererFeature
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
+        if (HizManager.Ins == null)
+        {
+            return;
+        }
         renderer.EnqueuePass(_pyramidFeature);
     }
 }
@@ -32,8 +36,8 @@ public class BuildDepthPyramidPass : ScriptableRenderPass
     public int maxMipLevel;
     private Material copyMat;
     private int baseSize = 4096;
-    private int TexSizeX = 1920;
-    private int TexSizeY = 1080;
+    private int TexSizeX = 1024;
+    private int TexSizeY = 1024;
     private int DepthPyramidID = Shader.PropertyToID("_HizDepthTexture");
     private int ID_DepthTexture = Shader.PropertyToID("_DepthTexture");
     public BuildDepthPyramidPass()

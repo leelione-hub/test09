@@ -14,14 +14,23 @@ Shader "Custom/CustomPBR"
         _Metallic("Metallic",Range(0,1)) = 0
         _OcclusionStrength("Occlusion Strength", Range(0.0, 1.0)) = 1.0
         
-        [Main(SubSurface)] _subSurface("次表面散射",float) = 0
-        [Sub(SubSurface)]_Subsurface("0=纯漫反射 1=半透明皮肤", Range(0,1)) = 0
-        
-        [Main(Sheen)] _sheen("布料",float) = 0
+        [Main(SubSurface,_SUBSURFACE)] _subSurface("次表面散射",float) = 0
+        [Sub(SubSurface)] _Subsurface("0=纯漫反射 1=半透明皮肤", Range(0,1)) = 0
+        [Sub(SubSurface)] _ThicknessMap("Thickness Map (Inverse)", 2D) = "white" {}
+        [Sub(SubSurface)] _Thickness("Thickness Multiplier", Range(0.0, 5.0)) = 1.0
+        [Sub(SubSurface)] _SubsurfaceColor("Subsurface Color", Color) = (1,0,0,1)
+        [Sub(SubSurface)] _TransmissionPower("Transmission Focus", Range(0.1, 10.0)) = 5.0
+        [Sub(SubSurface)] _TransmissionDistortion("Transmission Distortion", Range(0.0, 1.0)) = 0.1
+    	
+    	
+    	[Main(Anisotropy,_ANISOTROPY)] _anisitropy("Anisotropy",float) = 0
+    	[Sub(Anisotropy)] _Anisotropy("Anisotropy Strength",Range(-1,1)) = 0
+    	
+        [Main(Sheen,_SHEEN)] _sheen("布料",float) = 0
         [Sub(Sheen)] _Sheen("绒布光泽",Range(0,1)) = 0
-        [Sub(Sheen)] __SheenTint("0=白 1=跟随 BaseColor", Range(0,1)) = 1
-        
-        [Main(Clearcoat)] _clearcoat("清漆",float) = 0
+        [Sub(Sheen)] _SheenTint("0=白 1=跟随 BaseColor", Range(0,1)) = 1
+    	
+        [Main(Clearcoat,_CLEARCOAT)] _clearcoat("清漆",float) = 0
         [Sub(Clearcoat)] _Clearcoat("0=无 1=完整车漆", Range(0,1)) = 0
         [Sub(Clearcoat)] _ClearcoatGloss("0=哑 1=亮", Range(0,1)) = 1
         
@@ -35,6 +44,7 @@ Shader "Custom/CustomPBR"
     	[SubToggle(Preset,_ALPHATEST_ON)] _AlphaTest("启用透明裁剪", Float) = 0
     	[Sub(Preset)] _Cutoff("透明裁剪阈值", Range(0,1)) = 0.5
 		[SubEnum(Preset, UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 2
+    	[SubToggle(Preset,_ENVIRONMENTREFLECTIONS_OFF,false)] _EnvironmentReflections_Off("_EnvironmentReflections Off",Float) = 0
 		[SubEnum(Preset, UnityEngine.Rendering.BlendMode)] _SrcBlend ("SrcBlend", Float) = 1
 		[SubEnum(Preset, UnityEngine.Rendering.BlendMode)] _DstBlend ("DstBlend", Float) = 0
 		[SubToggle(Preset)] _ZWrite ("ZWrite ", Float) = 1
@@ -75,6 +85,10 @@ Shader "Custom/CustomPBR"
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma shader_feature_local_fragment _ _ALPHAPREMULTIPLY_ON _ALPHAMODULATE_ON
             #pragma shader_feature_local_fragment _EMISSION
+            #pragma shader_feature_local_fragment _SUBSURFACE
+            #pragma shader_feature_local_fragment _SHEEN
+            #pragma shader_feature_local_fragment _CLEARCOAT
+            #pragma shader_feature_local_fragment _ANISOTROPY 
             #pragma shader_feature_local_fragment _METALLICSPECGLOSSMAP
             #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
             #pragma shader_feature_local_fragment _OCCLUSIONMAP
@@ -109,6 +123,10 @@ Shader "Custom/CustomPBR"
             #include "HLSL/CustomPBR/CustomPBRForward.hlsl"
             ENDHLSL
         }
+
+		UsePass "Universal Render Pipeline/Lit/DEPTHONLY"
+		UsePass "Universal Render Pipeline/Lit/SHADOWCASTER"
+		UsePass "Universal Render Pipeline/Lit/DEPTHNORMALS"
     }
     CustomEditor "LWGUI.LWGUI"
 }
