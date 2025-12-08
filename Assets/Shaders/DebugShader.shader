@@ -3,7 +3,7 @@ Shader "Custom/URP_DebugTools"
     Properties
     {
         [Header(Base Settings)]
-        _BaseMap("Base Texture", 2D) = "white" {}
+        _DebugMap("Debug Texture", 2D) = "white" {}
 
         [Header(Debug Settings)]
         // 使用 KeywordEnum 生成下拉菜单，Unity 会自动生成对应的 Keyword
@@ -52,12 +52,12 @@ Shader "Custom/URP_DebugTools"
                 float2 uv : TEXCOORD0;
                 float3 normalWS : TEXCOORD1;
                 float3 normalOS : TEXCOORD3;
-                float3 tangentWS : TEXCOORD4;
+                float4 tangentWS : TEXCOORD4;
                 float4 color : TEXCOORD5;
                 float3 positionWS : TEXCOORD6;
             };
 
-            TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
+            TEXTURE2D(_DebugMap); SAMPLER(sampler_DebugMap);
             float _GridFrequency;
 
             Varyings vert(Attributes input)
@@ -72,7 +72,7 @@ Shader "Custom/URP_DebugTools"
                 
                 output.normalWS = normalInput.normalWS;
                 output.normalOS = input.normalOS; // 传递物体空间法线
-                output.tangentWS = normalInput.tangentWS;
+                output.tangentWS = float4(normalInput.tangentWS,input.tangentOS.w);
                 
                 // 顶点色默认白色，防止模型没有顶点色时显示全黑
                 output.color = input.color; 
@@ -83,7 +83,7 @@ Shader "Custom/URP_DebugTools"
             half4 frag(Varyings input) : SV_Target
             {
                 half4 finalColor = half4(1, 1, 1, 1);
-                float4 texColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
+                float4 texColor = SAMPLE_TEXTURE2D(_DebugMap, sampler_DebugMap, input.uv);
 
                 // ====================================================
                 // Mode 0: None / Texture RGB (默认显示贴图)

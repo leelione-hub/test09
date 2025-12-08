@@ -17,25 +17,30 @@ Shader "Custom/URP_AnimeNPR"
         _MetalInternsity("MetalInternsity",Range(0,1)) = 0
         
         [Main(Body,_BODY)] _body("Body",Float) = 1
-        [KWEnum(Body, Body, _FACE, BodyFace, _BODY_FACE)] _enum ("KWEnum", float) = 0
-        [Sub(Body)][ShowIf(_enum, Equal, 0)] _key1_Float1 ("Key1 Float", float) = 0
-		[Sub(Body)][ShowIf(_enum, Equal, 1)] _key2_Float2 ("Key2 Float", float) = 0
+        [KWEnum(Body, Body, _BODY, BodyFace, _FACE, Hair, _HAIR)] _enum ("KWEnum", float) = 0
+//        [Sub(Body)][ShowIf(_enum, Equal, 0)] _key1_Float1 ("Key1 Float", float) = 0
+//		[Sub(Body)][ShowIf(_enum, Equal, 1)] _key2_Float2 ("Key2 Float", float) = 0
+        [Sub(Body)][ShowIf(_enum, Equal, 1)] _FaceShadowMap("FaceShadow Map",2D) = "black"{}
+        [Sub(Body)][ShowIf(_enum, Equal, 1)] _FaceShadowColor("FaceShadowColor",Color) = (0.8,0.8,0.8,1)
+        [Sub(Body)][ShowIf(_enum, Equal, 1)] _FaceShaowOffset("FaceShaowOffset",Range(-0.5,0.5)) = 0
+        [Sub(Body)][ShowIf(_enum, Equal, 1)] _FaceShadowMapPow("FaceShadowMapPow",Range(0,1)) = 0.3
+        [Sub(Body)][ShowIf(_enum, Equal, 2)] _HairDarkShadowSmooth("HairShadowSmooth",Range(-1,1)) = -0.5
+        [Sub(Body)][ShowIf(_enum, Equal, 2)] _HairDarkShadowArea("HairDarkShadowArea",Range(-1,1)) = 0
+        [Sub(Body)][ShowIf(_enum, Equal, 2)] _HairSmoothShadowIntensity("HairSmoothShadowIntensity",Range(0,1)) = 1
+        [Sub(Body)][ShowIf(_enum, Equal, 2)] _HairRange("HairRange",Range(0,1)) = 0
+        [Sub(Body)][ShowIf(_enum, Equal, 2)] _HairViewSpecularThreshold("HairViewSpecularThreshold",Range(0,5)) = 0.3
+        [Sub(Body)][ShowIf(_enum, Equal, 2)] _HairSpecAreaBaseline("HairSpecAreaBaseline",Float) = 0.1
+        [Sub(Body)][ShowIf(_enum, Equal, 2)] _HairAccGroveBaseline("HairAccGroveBaseline",Float) = 0.1
         //[Sub(Body)]_BodyShadowSmooth("BodyShadowSmooth",Range(0,1)) = 0.5
         
-        [Main(Hair,_HAIR)] _hair("Hair",Float) = 0
-        [Sub(Hair)] _HairDarkShadowSmooth("HairShadowSmooth",Range(-1,1)) = -0.5
-        [Sub(Hair)] _HairDarkShadowArea("HairDarkShadowArea",Range(-1,1)) = 0
-        [Sub(Hair)] _HairSmoothShadowIntensity("HairSmoothShadowIntensity",Range(0,1)) = 1
-        [Sub(Hair)] _HairRange("HairRange",Range(0,1)) = 0
-        [Sub(Hair)] _HairViewSpecularThreshold("HairViewSpecularThreshold",Range(0,5)) = 0.3
-        [Sub(Hair)] _HairSpecAreaBaseline("HairSpecAreaBaseline",Float) = 0.1
-        [Sub(Hair)] _HairAccGroveBaseline("HairAccGroveBaseline",Float) = 0.1
+        //[Main(Hair,_HAIR)] _hair("Hair",Float) = 0
+       
         
-        [Main(Face,_FACE)] _face("Face",Float) = 0
-        [Sub(Face)] _FaceShadowMap("FaceShadow Map",2D) = "black"{}
-        [Sub(Face)] _FaceShadowColor("FaceShadowColor",Color) = (0.8,0.8,0.8,1)
-        [Sub(Face)] _FaceShaowOffset("FaceShaowOffset",Range(-0.5,0.5)) = 0
-        [Sub(Face)] _FaceShadowMapPow("FaceShadowMapPow",Range(0,1)) = 0.3
+//        [Main(Face,_FACE)] _face("Face",Float) = 0
+        
+        
+        [Main(Specular)] _specular("Specular",Float) = 1
+        
         
         
         [Toggle] _InNight("InNight",Float) = 0
@@ -92,7 +97,8 @@ Shader "Custom/URP_AnimeNPR"
                 Varyings output;
                 
                 // 简单的法线外扩
-                float3 positionOS = input.positionOS.xyz + input.normalOS * _OutlineWidth * 0.1 * input.color.a;
+                half outlineIntensity = input.color.a;
+                float3 positionOS = input.positionOS.xyz + input.normalOS * _OutlineWidth * 0.1 * step(0.5,outlineIntensity) * outlineIntensity;;
                 
                 VertexPositionInputs vertexInput = GetVertexPositionInputs(positionOS);
                 
@@ -126,13 +132,7 @@ Shader "Custom/URP_AnimeNPR"
             #pragma multi_compile _ _SHADOWS_SOFT
             #pragma shader_feature _HAIR
             #pragma shader_feature _FACE
-            #pragma multi_compile _BODY_FACE _BODY
-            #if defined(_BODY_FACE)
-                #define _BODY
-                #define _FACE
-            #else
-                #define _BODY
-            #endif
+            #pragma shader_feature _BODY
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -217,7 +217,7 @@ Shader "Custom/URP_AnimeNPR"
                 
                 real4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv) * _BaseColor;
                 real4 lightMap = SAMPLE_TEXTURE2D(_LightMap,sampler_LightMap,input.uv);
-                real4 metalMap = SAMPLE_TEXTURE2D(_MetalMap,sampler_MatelMap,V.xy * 0.5 + 0.5);
+                //real4 metalMap = SAMPLE_TEXTURE2D(_MetalMap,sampler_MatelMap,V.xy * 0.5 + 0.5);
                 
                 
                 // 2. 获取主光源信息 (方向, 颜色, 阴影衰减)
@@ -248,7 +248,7 @@ Shader "Custom/URP_AnimeNPR"
                 float adjustedHalfSampler = saturate(halfSampler + rampOffset);
                 //float adjustedHalfSampler = saturate(pow(saturate(lambertAO + 1 - _ShadowSmoothness),2));
                 //return adjustedHalfSampler;
-                half3 diffuse = albedo;
+                half3 diffuse = 0;
                 half3 specualr = 0;
 
                 #ifdef _BODY
@@ -256,28 +256,33 @@ Shader "Custom/URP_AnimeNPR"
                 float rampV = saturate(lightMap.a * 0.45 + dayOrNight);
                 float2 rampUV = float2(adjustedHalfSampler,rampV);
                 half4 rampShadow = SAMPLE_TEXTURE2D(_ShadowRampMap,sampler_ShadowRampMap,rampUV);
-                    #ifdef _FACE
-                    float sinx = sin(_FaceShaowOffset);
-                    float cosx = cos(_FaceShaowOffset);
-                    float2x2 rotationOffset = float2x2(cosx,-sinx,sinx,cosx);
+                diffuse = lerp(rampShadow,lightColor, lambertRampAO) * albedo;
+                #endif
+               
+                
+                #ifdef _FACE
+                float facerampV = saturate(lightMap.a * 0.45 + dayOrNight);
+                float2 facerampUV = float2(adjustedHalfSampler,facerampV);
+                half4 facerampShadow = SAMPLE_TEXTURE2D(_ShadowRampMap,sampler_ShadowRampMap,facerampUV);
+                float sinx = sin(_FaceShaowOffset);
+                float cosx = cos(_FaceShaowOffset);
+                float2x2 rotationOffset = float2x2(cosx,-sinx,sinx,cosx);
 
-                    float3 Front = unity_ObjectToWorld._12_22_32;
-                    float3 Right = unity_ObjectToWorld._13_23_33;
-                    float2 LightDir = mul(rotationOffset,mainLight.direction.xz);
-                    //计算xz平面下的关照角度
-                    float FrontL = dot(normalize(Front.xz),normalize(LightDir));
-                    float RightL = dot(normalize(Right.xz),normalize(LightDir));
-                    RightL = -(acos(RightL) / PI - 0.5) * 2;
+                float3 Front = unity_ObjectToWorld._12_22_32;
+                float3 Right = unity_ObjectToWorld._13_23_33;
+                float2 LightDir = mul(rotationOffset,mainLight.direction.xz);
+                //计算xz平面下的关照角度
+                float FrontL = dot(normalize(Front.xz),normalize(LightDir));
+                float RightL = dot(normalize(Right.xz),normalize(LightDir));
+                RightL = -(acos(RightL) / PI - 0.5) * 2;
 
-                    float2 lightData = float2(SAMPLE_TEXTURE2D(_FaceShadowMap,sampler_FaceShadowMap,input.uv.xy).r,
-                        SAMPLE_TEXTURE2D(_FaceShadowMap,sampler_FaceShadowMap,float2(-input.uv.x,input.uv.y)).r);
-                    lightData = pow(abs(lightData),_FaceShadowMapPow);
-                    float lightAttenuation = step(0,FrontL) * min(step(RightL,lightData.x),step(-RightL ,lightData.y));
-                    //float lightAttenuation = step(0,FrontL) * min(smoothstep(RightL- 0.01,RightL + 0.01,lightData.x),smoothstep(-RightL - 0.01,-RightL + 0.01,lightData.y));
-                    diffuse = lerp(rampShadow, lightColor, lightAttenuation) * albedo;
-                    #else
-                    diffuse = lerp(rampShadow,lightColor, lambertRampAO) * albedo;
-                    #endif
+                float2 lightData = float2(SAMPLE_TEXTURE2D(_FaceShadowMap,sampler_FaceShadowMap,input.uv.xy).r,
+                    SAMPLE_TEXTURE2D(_FaceShadowMap,sampler_FaceShadowMap,float2(-input.uv.x,input.uv.y)).r);
+                lightData = pow(abs(lightData),_FaceShadowMapPow);
+                float lightAttenuation = step(0,FrontL) * min(step(RightL,lightData.x),step(-RightL ,lightData.y));
+                //float lightAttenuation = step(0,FrontL) * min(smoothstep(RightL- 0.01,RightL + 0.01,lightData.x),smoothstep(-RightL - 0.01,-RightL + 0.01,lightData.y));
+                diffuse = lerp(facerampShadow, lightColor, lightAttenuation) * albedo;
+                lightMap.r = 0;
                 #endif
                 
 
@@ -303,46 +308,34 @@ Shader "Custom/URP_AnimeNPR"
                 
                 half3 diffuseHair = (shadowHair + litHair) * albedo * isHair + lightShadowSmooth * isHair;
                 half3 diffuseHairAccessory = albedo * step(lightMap.r ,_HairRange);
-                half aoArea = step(_HairRange,lightMap.g);
+                half aoArea = lightMap.g;
                 diffuse = (diffuseHair + diffuseHairAccessory) * aoArea;
                 diffuse += hairShadowD * (1 - aoArea) * albedo;
                 #endif
-
                 
-                
-
                 /// =======高光========
-                float specularPow = pow(NdotH, RoughnessToSpecularExponent(lightMap.b));
-
+                #ifdef _BODY
+                // 不管所谓的高光分层了，直接将lightmap.b通道作为粗糙度lihtmap.r作为金属度
+                float specularPow = pow(NdotV, RoughnessToSpecularExponent(lightMap.b));
                 float3 NormalVS = mul(unity_MatrixV,N);
                 half4 MetalMap = SAMPLE_TEXTURE2D(_MetalMap,sampler_MatelMap,NormalVS.xy);
+                //float metalRef = MetalMap.r * step(0.98,lightMap.r);
+                //specualr = (metalRef + 0.5) * albedo * specularPow * lightMap.b;
+                half metal = step(0.98,lightMap.r);
+                specualr = MetalMap.r * metal * albedo + (1 - metal) * lerp(0.04,albedo,lightMap.r) * specularPow * lightMap.b;
+                #endif
+
+                #ifdef _HAIR
+                float3 viewPosWS = GetCurrentViewPosition();
+                float disY = smoothstep(-0.5,0.5, input.positionWS.y - viewPosWS. y);
+                float3 UP = normalize(unity_ObjectToWorld._11_21_31);
+                float UpDotV = saturate(dot(UP,V));
+                float hairSpecularMask = disY * lightMap.b;
+                specualr = hairSpecularMask * ndotLRaw;
+                #endif
                 
-                //specualr = metalMap.r * albedo * lightMap.r;
-
-                //衣服材质，高光区间
-                half strokeVMask = step(1 - _StrokeRange,NdotV);
-                half patternVMask = step(1 - _PatternRange,NdotV);
-
-                //头部，高光区间
-                half hairMask = step(_HairRange,lightMap.r);
-                half hairViewMask = step(_HairViewSpecularThreshold,NdotV);
-                half hairSpecAreaMask = step(_HairSpecAreaBaseline,lightMap.b);
-                half hairAccGroveMask = step(_HairAccGroveBaseline,lightMap.r);
-
-                //高光specular: Metal+Non-metal
-                //ILM的R通道，视角高亮
-                half strokeMask = step(0.001,lightMap.r) - step(_StrokeRange,lightMap.r);
-                half3 strokeSpecular = lightMap.b * strokeVMask * strokeMask;
-                half patternMask = step(_StrokeRange,lightMap.r ) - step(_PatternRange,lightMap.r);
-                half3 patternSpecular = lightMap.b * patternVMask * patternMask;
-
-                //金属高光，Blinn-Phong
-                half metalMask = step(_PatternRange,lightMap.r);
-                half3 metalSpecular = _MetalInternsity * metalMap * metalMask;
-
-                specualr = (strokeSpecular + patternSpecular + metalSpecular) * albedo;
                 
-                return half4(specualr + diffuse,1);
+                return half4(specualr + diffuse ,1);
             }
             ENDHLSL
         }
