@@ -18,8 +18,6 @@ Shader "Custom/URP_AnimeNPR"
         
         [Main(Body,_BODY)] _body("Body",Float) = 1
         [KWEnum(Body, Body, _BODY, BodyFace, _FACE, Hair, _HAIR)] _enum ("KWEnum", float) = 0
-//        [Sub(Body)][ShowIf(_enum, Equal, 0)] _key1_Float1 ("Key1 Float", float) = 0
-//		[Sub(Body)][ShowIf(_enum, Equal, 1)] _key2_Float2 ("Key2 Float", float) = 0
         [Sub(Body)][ShowIf(_enum, Equal, 1)] _FaceShadowMap("FaceShadow Map",2D) = "black"{}
         [Sub(Body)][ShowIf(_enum, Equal, 1)] _FaceShadowColor("FaceShadowColor",Color) = (0.8,0.8,0.8,1)
         [Sub(Body)][ShowIf(_enum, Equal, 1)] _FaceShaowOffset("FaceShaowOffset",Range(-0.5,0.5)) = 0
@@ -31,17 +29,16 @@ Shader "Custom/URP_AnimeNPR"
         [Sub(Body)][ShowIf(_enum, Equal, 2)] _HairViewSpecularThreshold("HairViewSpecularThreshold",Range(0,5)) = 0.3
         [Sub(Body)][ShowIf(_enum, Equal, 2)] _HairSpecAreaBaseline("HairSpecAreaBaseline",Float) = 0.1
         [Sub(Body)][ShowIf(_enum, Equal, 2)] _HairAccGroveBaseline("HairAccGroveBaseline",Float) = 0.1
-        //[Sub(Body)]_BodyShadowSmooth("BodyShadowSmooth",Range(0,1)) = 0.5
-        
-        //[Main(Hair,_HAIR)] _hair("Hair",Float) = 0
-       
-        
-//        [Main(Face,_FACE)] _face("Face",Float) = 0
-        
         
         [Main(Specular)] _specular("Specular",Float) = 1
         
+        [Main(Emission,_EMISSION)] _emission("Emission",Float) = 1
+        [Sub(Emission)] _EmissionIntensity("Emission Intensity",Float) = 0.1
         
+        [Main(EdgeLight,_EDGELIGHT)] _edgelight("EdgeLight",Float) = 0
+        [Sub(EdgeLight)] _EdgeWidth("EdgeLight Width",Range(0,1)) = 0.1
+        [Sub(EdgeLight)] _EdgeColor("EdgeLight Color",Color) = (1,1,1)
+        [Sub(EdgeLight)] _EdgeIntensity("EdgeLight Intensity",Float) = 1
         
         [Toggle] _InNight("InNight",Float) = 0
 
@@ -133,9 +130,12 @@ Shader "Custom/URP_AnimeNPR"
             #pragma shader_feature _HAIR
             #pragma shader_feature _FACE
             #pragma shader_feature _BODY
+            #pragma shader_feature_fragment _EMISSION
+            #pragma shader_feature _EDGELIGHT
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
             struct Attributes
             {
@@ -152,6 +152,7 @@ Shader "Custom/URP_AnimeNPR"
                 float3 normalWS : TEXCOORD1;
                 float3 positionWS : TEXCOORD2;
                 float4 vertexColor  : TEXCOORD3;
+                float4 screenPosition : TEXCOORD4;
             };
 
             CBUFFER_START(UnityPerMaterial)
@@ -159,6 +160,7 @@ Shader "Custom/URP_AnimeNPR"
                 half4 _BaseColor;
                 half4 _ShadowColor;
                 half4 _FaceShadowColor;
+                half3 _EdgeColor;
                 float _ShadowThreshold;
                 float _ShadowSmoothness;
                 real4 _SpecularColor;
@@ -180,7 +182,10 @@ Shader "Custom/URP_AnimeNPR"
                 float _HairViewSpecularThreshold;
                 float _HairSpecAreaBaseline;
                 float _HairAccGroveBaseline;
+                half _EmissionIntensity;
                 half _InNight;
+                half _EdgeWidth;
+                half _EdgeIntensity;
             CBUFFER_END
 
             TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
@@ -188,6 +193,7 @@ Shader "Custom/URP_AnimeNPR"
             TEXTURE2D(_MetalMap);SAMPLER(sampler_MatelMap);
             TEXTURE2D(_FaceShadowMap);SAMPLER(sampler_FaceShadowMap);
             TEXTURE2D(_ShadowRampMap);SAMPLER(sampler_ShadowRampMap);
+            TEXTURE2D_FLOAT(_CameraDepthAttachment);SAMPLER(sampler_CameraDepthAttachment);
 
             float RoughnessToSpecularExponent(float roughness)
             {
@@ -205,6 +211,7 @@ Shader "Custom/URP_AnimeNPR"
                 output.normalWS = normalInput.normalWS;
                 output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
                 output.vertexColor = input.color;
+                output.screenPosition = ComputeScreenPos(output.positionCS);
                 return output;
             }
 
@@ -250,6 +257,7 @@ Shader "Custom/URP_AnimeNPR"
                 //return adjustedHalfSampler;
                 half3 diffuse = 0;
                 half3 specualr = 0;
+                half3 emission = 0;
 
                 #ifdef _BODY
                 ///漫反射diffuse: Ramp+AO
@@ -328,14 +336,34 @@ Shader "Custom/URP_AnimeNPR"
                 #ifdef _HAIR
                 float3 viewPosWS = GetCurrentViewPosition();
                 float disY = smoothstep(-0.5,0.5, input.positionWS.y - viewPosWS. y);
-                float3 UP = normalize(unity_ObjectToWorld._11_21_31);
-                float UpDotV = saturate(dot(UP,V));
+                // float3 UP = normalize(unity_ObjectToWorld._11_21_31);
+                // float UpDotV = saturate(dot(UP,V));
                 float hairSpecularMask = disY * lightMap.b;
                 specualr = hairSpecularMask * ndotLRaw;
                 #endif
-                
-                
-                return half4(specualr + diffuse ,1);
+                emission = albedo * albedo.a * _EmissionIntensity;
+
+                #ifdef _EDGELIGHT
+                half3 edgeLight = 0;
+                float3 normalVS = TransformWorldToViewNormal(input.normalWS,true);
+                float3 positionVS = TransformWorldToView(input.positionWS);
+                float3 offsetPositionVS = positionVS + normalVS * _EdgeWidth * 0.01;
+                float4 offsetClipPosistionCS = TransformWViewToHClip(offsetPositionVS);
+               
+                float2 offsetScreenUV = (offsetClipPosistionCS.xy / offsetClipPosistionCS.w) * 0.5 + 0.5;
+                #if UNITY_UV_STARTS_AT_TOP
+                    offsetScreenUV.y = 1.0 - offsetScreenUV.y;
+                #endif
+                float offsetDepth = SampleSceneDepth(offsetScreenUV);
+                float offsetEyeDepth = LinearEyeDepth(offsetDepth,_ZBufferParams);
+
+                float curDepth = LinearEyeDepth(input.positionCS.z,_ZBufferParams);
+
+                float edgeLightInt = step(0.5, saturate(offsetEyeDepth - curDepth));
+                diffuse = edgeLightInt * _EdgeColor * _EdgeIntensity + (1 - edgeLightInt) * diffuse;
+                #endif
+
+                return half4(specualr + diffuse + emission ,1);
             }
             ENDHLSL
         }
