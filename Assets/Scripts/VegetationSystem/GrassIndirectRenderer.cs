@@ -1,56 +1,113 @@
+using LWGUI;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace VegetationSystem
 {
-
     public class GrassIndirectRenderer : MonoBehaviour
     {
-        public Mesh grassMesh;
-        public Material grassMaterial;
-        private int grassCount = 100_000;
-        public float areaSize = 50f;
-
-        ComputeBuffer instanceBuffer;
-        ComputeBuffer argsBuffer;
-        GraphicsBuffer grassBuffer;
+        public  Mesh     grassMesh;
+        public  Material grassMaterial;
+        private int      grassCount           = 100_000;
+        public  float    areaSize             = 50f;
+        public  bool     EnableFrustumCulling = true;
+        public  Camera   cullingCamere;
+        
+        private GraphicsBuffer allInstanceBuffer;
+        private GraphicsBuffer argsBuffer;
+        // private GraphicsBuffer grassBuffer;
+        private GraphicsBuffer visibleBuffer;
 
         const int ARGS_STRIDE = 5;
-        
+
+        public ComputeShader cullingCS;
+
         public TextAsset grassJson;
+
+        private int stride;
+
+        private int ALLINSTANCES     = Shader.PropertyToID("_AllInstances");
+        private int VISIBLEINSTANCES = Shader.PropertyToID("_VisibleInstances");
+        private int ARGSBUFFER       = Shader.PropertyToID("_ArgsBuffer");
+        private int FRUSTUMPLANES    = Shader.PropertyToID("_FrustumPlanes");
+        private int ENABLECULLING    = Shader.PropertyToID("EnableFrustumCulling");
+        private int INSTANCEBUFFER   = Shader.PropertyToID("_InstanceBuffer");
 
         struct GrassInstanceData
         {
             public Vector3 position;
-            public float rotationY;
+            public float   rotationY;
             public Vector2 scale;
         }
 
         void Start()
         {
-            InitInstanceBuffer();
-            InitArgsBuffer();
+            if (cullingCamere == null)
+            {
+                cullingCamere = Camera.main;
+            }
+            
+            InitBuffers();
         }
 
-        void InitInstanceBuffer()
+        void InitBuffers()
         {
+            var grassData = LoadGrassDatas();
+            if (grassData == null)
+            {
+                //没有加载到对应的数据
+                this.enabled = false;
+                return;
+            }
+
+            grassCount = grassData.trees.Count;
+            stride     = sizeof(float) * (3 + 1 + 2);
             
-            if (grassJson == null) return;
+            allInstanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, grassCount, stride);
+            SetAllBufferDatas(grassData);
             
+            visibleBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, grassCount, stride);
+            argsBuffer    = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1, sizeof(uint) * ARGS_STRIDE);
+        }
+
+        void DispatchCulling()
+        {
+            visibleBuffer.SetCounterValue(0);
+
+            uint[] args = new uint[ARGS_STRIDE];
+            args[0] = grassMesh.GetIndexCount(0);
+            args[1] = 0;
+            args[2] = grassMesh.GetIndexStart(0);
+            args[3] = grassMesh.GetBaseVertex(0);
+            args[4] = 0;
+            argsBuffer.SetData(args);
+
+            int kernel = 0 /*cullingCS.FindKernel("CSMain")*/;
+
+            cullingCS.SetBuffer(kernel, ALLINSTANCES, allInstanceBuffer);
+            cullingCS.SetBuffer(kernel, VISIBLEINSTANCES, visibleBuffer);
+            cullingCS.SetBuffer(kernel, ARGSBUFFER, argsBuffer);
+            cullingCS.SetBool(ENABLECULLING,EnableFrustumCulling);
+            SetFrustumPlanes(cullingCS);
+
+            int threadGroup = Mathf.CeilToInt(grassCount / 64.0f);
+            cullingCS.Dispatch(kernel, threadGroup, 1, 1);
+        }
+
+        TerrainTreeData LoadGrassDatas()
+        {
+            if (grassJson == null)
+            {
+                return null;
+            }
             string json = grassJson.text;
-            
             TerrainTreeData treedata = JsonUtility.FromJson<TerrainTreeData>(json);
+            return treedata;
+        }
 
-            grassCount = treedata.trees.Count;
-            
-            instanceBuffer = new ComputeBuffer(
-                grassCount,
-                sizeof(float) * (3 + 1 + 2),
-                ComputeBufferType.Structured
-            );
-
+        void SetAllBufferDatas(TerrainTreeData treedata)
+        {
             GrassInstanceData[] data = new GrassInstanceData[grassCount];
-
             for (int i = 0; i < grassCount; i++)
             {
                 data[i] = new GrassInstanceData
@@ -60,64 +117,53 @@ namespace VegetationSystem
                     scale = treedata.trees[i].scale
                 };
             }
-            
-            // for (int i = 0; i < grassCount; i++)
-            // {
-            //     data[i] = new GrassInstanceData
-            //     {
-            //         position = new Vector3(
-            //             Random.Range(-areaSize, areaSize),
-            //             0,
-            //             Random.Range(-areaSize, areaSize)
-            //         ),
-            //         rotationY = Random.Range(0, Mathf.PI * 2),
-            //         scale = Vector2.one * Random.Range(0.8f, 1.2f)
-            //     };
-            // }
-
-            instanceBuffer.SetData(data);
-            grassMaterial.SetBuffer("_InstanceBuffer", instanceBuffer);
+            allInstanceBuffer.SetData(data);
+            //grassMaterial.SetBuffer("visibleBuffer", allInstanceBuffer);
         }
-
-        void InitArgsBuffer()
-        {
-            uint[] args = new uint[ARGS_STRIDE];
-            args[0] = grassMesh.GetIndexCount(0);
-            args[1] = (uint)grassCount;
-            args[2] = grassMesh.GetIndexStart(0);
-            args[3] = grassMesh.GetBaseVertex(0);
-            args[4] = 0;
-
-            argsBuffer = new ComputeBuffer(
-                1,
-                sizeof(uint) * ARGS_STRIDE,
-                ComputeBufferType.IndirectArguments
-            );
-            argsBuffer.SetData(args);
-            grassBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, grassCount, GraphicsBuffer.IndirectDrawIndexedArgs.size);
-            grassBuffer.SetData(args);
-        }
+        
 
         void Update()
         {
+            DispatchCulling();
+            Render();
+        }
+
+        void Render()
+        {
+            grassMaterial.SetBuffer(INSTANCEBUFFER, visibleBuffer);
             RenderParams rp = new RenderParams(grassMaterial)
             {
-                layer = gameObject.layer,
+                layer             = gameObject.layer,
                 shadowCastingMode = ShadowCastingMode.On,
-                receiveShadows = true,
-                worldBounds = new Bounds(Vector3.zero, Vector3.one * areaSize)
+                receiveShadows    = true,
+                worldBounds       = new Bounds(Vector3.zero, Vector3.one * areaSize)
             };
+            Graphics.RenderMeshIndirect(rp, grassMesh, argsBuffer);
+        }
 
-            Graphics.RenderMeshIndirect(
-                rp,
-                grassMesh,
-                grassBuffer
-            );
+        void SetFrustumPlanes(ComputeShader cs)
+        {
+            Plane[] planes = GeometryUtility.CalculateFrustumPlanes(cullingCamere);
+
+            Vector4[] planeData = new Vector4[6];
+            for (int i = 0; i < 6; i++)
+            {
+                var normal   = planes[i].normal;
+                var distance = planes[i].distance;
+                planeData[i] = new Vector4(
+                    normal.x,
+                    normal.y,
+                    normal.z,
+                    distance
+                    );
+            }
+            cs.SetVectorArray(FRUSTUMPLANES, planeData);
         }
 
         void OnDisable()
         {
-            instanceBuffer?.Release();
+            allInstanceBuffer?.Release();
+            visibleBuffer?.Release();
             argsBuffer?.Release();
         }
     }
