@@ -1,3 +1,4 @@
+using Extension;
 using LWGUI;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -10,6 +11,7 @@ namespace VegetationSystem
         public  Material grassMaterial;
         private int      grassCount           = 100_000;
         public  float    areaSize             = 50f;
+        public  Vector3  terrainSize          = new Vector3(1000, 1000, 1000);
         public  bool     EnableFrustumCulling = true;
         public  Camera   cullingCamere;
         
@@ -33,12 +35,9 @@ namespace VegetationSystem
         private int ENABLECULLING    = Shader.PropertyToID("EnableFrustumCulling");
         private int INSTANCEBUFFER   = Shader.PropertyToID("_InstanceBuffer");
 
-        struct GrassInstanceData
-        {
-            public Vector3 position;
-            public float   rotationY;
-            public Vector2 scale;
-        }
+        private VgRender _vgRender;
+
+
 
         void Start()
         {
@@ -46,6 +45,14 @@ namespace VegetationSystem
             {
                 cullingCamere = Camera.main;
             }
+
+            if (this.GetComponentInChildren<Terrain>())
+            {
+                var data = this.GetComponent<Terrain>().terrainData;
+                terrainSize = data.bounds.size;
+            }
+            
+            _vgRender = new VgRender();
             
             InitBuffers();
         }
@@ -53,6 +60,9 @@ namespace VegetationSystem
         void InitBuffers()
         {
             var grassData = LoadGrassDatas();
+
+            _vgRender.InitVgDatas(grassData, terrainSize/*,grassMesh,grassMaterial*/);
+            
             if (grassData == null)
             {
                 //没有加载到对应的数据
@@ -76,7 +86,7 @@ namespace VegetationSystem
 
             uint[] args = new uint[ARGS_STRIDE];
             args[0] = grassMesh.GetIndexCount(0);
-            args[1] = 0;
+            args[1] = (uint)grassCount;
             args[2] = grassMesh.GetIndexStart(0);
             args[3] = grassMesh.GetBaseVertex(0);
             args[4] = 0;
@@ -112,25 +122,26 @@ namespace VegetationSystem
             {
                 data[i] = new GrassInstanceData
                 {
-                    position = treedata.trees[i].position * areaSize,
+                    position = treedata.trees[i].position.Multiply(terrainSize),
                     rotationY = treedata.trees[i].rotation,
                     scale = treedata.trees[i].scale
                 };
             }
             allInstanceBuffer.SetData(data);
-            //grassMaterial.SetBuffer("visibleBuffer", allInstanceBuffer);
+            //grassMaterial.SetBuffer(INSTANCEBUFFER, allInstanceBuffer);
         }
         
 
         void Update()
         {
-            DispatchCulling();
-            Render();
+            // DispatchCulling();
+            // Render();
+            _vgRender.Render();
         }
 
         void Render()
         {
-            grassMaterial.SetBuffer(INSTANCEBUFFER, visibleBuffer);
+            //grassMaterial.SetBuffer(INSTANCEBUFFER, visibleBuffer);
             RenderParams rp = new RenderParams(grassMaterial)
             {
                 layer             = gameObject.layer,
@@ -139,6 +150,7 @@ namespace VegetationSystem
                 worldBounds       = new Bounds(Vector3.zero, Vector3.one * areaSize)
             };
             Graphics.RenderMeshIndirect(rp, grassMesh, argsBuffer);
+            
         }
 
         void SetFrustumPlanes(ComputeShader cs)
@@ -165,6 +177,7 @@ namespace VegetationSystem
             allInstanceBuffer?.Release();
             visibleBuffer?.Release();
             argsBuffer?.Release();
+            _vgRender.Dispose();
         }
     }
 }
