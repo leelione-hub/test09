@@ -16,11 +16,13 @@ RWStructuredBuffer<uint> _ArgsBuffer;
 float4 _FrustumPlanes[6];   //xyz = normal ,w = distance
 bool EnableFrustumCulling;
 
+//#pragma multi_compile VGTYPE_GRASS VGTYPE_TREE VGTYPE_SHURB
+
 bool DistanceTest(float3 position)
 {
     float4 near = _FrustumPlanes[4];
     float signedDist = dot(near.xyz,position) + near.w;
-    if(signedDist > 150 || signedDist < 0.1)
+    if(signedDist > 300 || signedDist < 0.1)
     {
         return false;
     }
@@ -48,6 +50,7 @@ void CSMain(uint id : SV_DispatchThreadID)
 {
     if(id >= _AllInstances.Length)
         return;
+   
     GrassInstanceData inst = _AllInstances[id];
 
     float3 pos = inst.position;

@@ -9,14 +9,25 @@ namespace VegetationSystem
     public class VgConstantProperty
     {
         public static int    INSTANCEBUFFER   = Shader.PropertyToID("_InstanceBuffer");
+        public static int    ALLINSTANCES     = Shader.PropertyToID("_AllInstances");
+        public static int    VISIBLEINSTANCES = Shader.PropertyToID("_VisibleInstances");
+        public static int    ARGSBUFFER       = Shader.PropertyToID("_ArgsBuffer");
+        public static int    FRUSTUMPLANES    = Shader.PropertyToID("_FrustumPlanes");
+        public static int    ENABLECULLING    = Shader.PropertyToID("EnableFrustumCulling");
         public static string KW_GPUINSTANCEON = "GRAPHICDRAW_ON";
     }
         
     public struct VgRenderData
     {
+        public int            grassCount;
         public RenderParams   rp;
         public Mesh           mesh;
         public GraphicsBuffer args;
+        public GraphicsBuffer allInstanceBuffer;
+        public GraphicsBuffer visibleBuffer;
+        public VgtationType   vgType;
+        public int            prototypeIndex;
+        public　int            subMesh;
     }
     
     struct GrassInstanceData
@@ -34,29 +45,36 @@ namespace VegetationSystem
     {
         public List<VgRenderData> vgDataList = new List<VgRenderData>();
         public int                stride     = sizeof(float) * (3 + 1 + 2);
-        public GraphicsBuffer     positionBuffer;
+        //public GraphicsBuffer     positionBuffer;
         public int                grassCount;
+        public bool               isCulling;
 
         public void InitVgDatas(TerrainTreeData treedata,Vector3 terrainSize/*,Mesh mesh,Material material*/)
         {
+            Dictionary<int, List<GrassInstanceData>> treesData = new Dictionary<int, List<GrassInstanceData>>();
+            for (int k = 0; k < treedata.trees.Count; k++)
+            {
+                var data = treedata.trees[k];
+                var grassInstance = new GrassInstanceData()
+                {
+                    position  = treedata.trees[k].position.Multiply(terrainSize),
+                    rotationY = treedata.trees[k].rotation,
+                    scale     = treedata.trees[k].scale
+                };
+                if (!treesData.ContainsKey(data.prototypeIndex))
+                {
+                    treesData.Add(data.prototypeIndex, new List<GrassInstanceData>());
+                }
+                treesData[data.prototypeIndex].Add(grassInstance);
+            }
             for (int i = 0; i < treedata.prefabPath.Count; i++)
             {
-                
-                grassCount = treedata.trees.Count;
-                GrassInstanceData[] grassData  = new GrassInstanceData[grassCount];
-                for (int k = 0; k < treedata.trees.Count; k++)
-                {
-                    grassData[k] = new GrassInstanceData()
-                    {
-                        position  = treedata.trees[k].position.Multiply(terrainSize),
-                        rotationY = treedata.trees[k].rotation,
-                        scale     = treedata.trees[k].scale
-                    };
-                }
-                positionBuffer =
+                grassCount = treesData[i].Count;
+                var positionBuffer =
                     new GraphicsBuffer(GraphicsBuffer.Target.Structured, grassCount, stride);
-                positionBuffer.SetData(grassData);
-                var prefab = Resources.Load<GameObject>(treedata.prefabPath[i]);
+                positionBuffer.SetData(treesData[i]);
+                var visibleBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, grassCount, stride);
+                var prefab        = Resources.Load<GameObject>(treedata.prefabPath[i]);
 #if UNITY_EDITOR
                 prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(treedata.prefabPath[i]);
 #endif
@@ -65,20 +83,21 @@ namespace VegetationSystem
                 var          lod      = lodGroup.GetLODs()[0];
                 var          render   = lod.renderers[0];
                 var          mesh     = render.GetComponent<MeshFilter>().sharedMesh;
-                 for (int j = 0; j < mesh.subMeshCount; j++)
+                for (int j = 0; j < mesh.subMeshCount; j++)
                  {
                      VgRenderData data = new VgRenderData();
-                     data.rp = new RenderParams(render.sharedMaterials[j]/*material*/)
+                     data.grassCount = grassCount;
+                     data.vgType     = VgtationType.Grass;
+                     data.rp = new RenderParams(render.sharedMaterials[j])
                      {
                          layer             = prefab.layer,
                          shadowCastingMode = ShadowCastingMode.On,
                          receiveShadows    = true,
-                         worldBounds       = new Bounds(Vector3.zero, Vector3.one * terrainSize.x)
+                         worldBounds       = new Bounds(Vector3.zero, Vector3.one.Multiply(terrainSize) * 2)
                      };
-                     data.rp.material.SetBuffer(VgConstantProperty.INSTANCEBUFFER,positionBuffer);
-                     data.rp.material.EnableKeyword(VgConstantProperty.KW_GPUINSTANCEON);
+                     // data.rp.material.SetBuffer(VgConstantProperty.INSTANCEBUFFER,positionBuffer);
                      data.mesh = mesh;
-                     data.args = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 5,
+                     data.args = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
                          GraphicsBuffer.IndirectDrawIndexedArgs.size);
                      uint[] args = new uint[5];
                      args[0] = mesh.GetIndexCount(j);
@@ -87,6 +106,12 @@ namespace VegetationSystem
                      args[3] = mesh.GetBaseVertex(j);
                      args[4] = 0;
                      data.args.SetData(args);
+                     data.allInstanceBuffer = positionBuffer;
+                     data.visibleBuffer     = visibleBuffer;
+                     data.rp.material.SetBuffer(VgConstantProperty.INSTANCEBUFFER, data.visibleBuffer);
+                     data.rp.material.EnableKeyword(VgConstantProperty.KW_GPUINSTANCEON);
+                     data.prototypeIndex = i;
+                     data.subMesh        = j;
                      vgDataList.Add(data);
                  }
             }

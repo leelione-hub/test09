@@ -35,7 +35,8 @@ namespace VegetationSystem
         private int ENABLECULLING    = Shader.PropertyToID("EnableFrustumCulling");
         private int INSTANCEBUFFER   = Shader.PropertyToID("_InstanceBuffer");
 
-        private VgRender _vgRender;
+        private VgRender  _vgRender;
+        private VgCulling _vgCulling;
 
 
 
@@ -52,7 +53,10 @@ namespace VegetationSystem
                 terrainSize = data.bounds.size;
             }
             
-            _vgRender = new VgRender();
+            _vgRender           = new VgRender();
+            _vgRender.isCulling = true;
+            _vgCulling          = new VgCulling(_vgRender,cullingCS);
+            _vgCulling.SetCullingCamera(cullingCamere);
             
             InitBuffers();
         }
@@ -78,6 +82,8 @@ namespace VegetationSystem
             
             visibleBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, grassCount, stride);
             argsBuffer    = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1, sizeof(uint) * ARGS_STRIDE);
+            
+          
         }
 
         void DispatchCulling()
@@ -136,12 +142,13 @@ namespace VegetationSystem
         {
             // DispatchCulling();
             // Render();
+            _vgCulling.DispatchCulling();
             _vgRender.Render();
         }
 
         void Render()
         {
-            //grassMaterial.SetBuffer(INSTANCEBUFFER, visibleBuffer);
+            grassMaterial.SetBuffer(INSTANCEBUFFER, visibleBuffer);
             RenderParams rp = new RenderParams(grassMaterial)
             {
                 layer             = gameObject.layer,
