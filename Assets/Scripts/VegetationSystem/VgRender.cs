@@ -14,6 +14,8 @@ namespace VegetationSystem
         public static int    ARGSBUFFER       = Shader.PropertyToID("_ArgsBuffer");
         public static int    FRUSTUMPLANES    = Shader.PropertyToID("_FrustumPlanes");
         public static int    ENABLECULLING    = Shader.PropertyToID("EnableFrustumCulling");
+        public static int    VISIBLECHUNINFOS = Shader.PropertyToID("_VisibleChunkInfos");
+        public static int    CHUNKCOUNT       = Shader.PropertyToID("_ChunkCount");
         public static string KW_GPUINSTANCEON = "GRAPHICDRAW_ON";
     }
         
@@ -27,7 +29,7 @@ namespace VegetationSystem
         public GraphicsBuffer visibleBuffer;
         public VgtationType   vgType;
         public int            prototypeIndex;
-        public　int            subMesh;
+        public　int           subMesh;
     }
     
     struct GrassInstanceData
@@ -35,6 +37,14 @@ namespace VegetationSystem
         public Vector3 position;
         public float   rotationY;
         public Vector2 scale;
+    }
+
+    public struct ChunkInfo
+    {
+        public uint    startIndex;
+        public uint    count;
+        public Vector3 center;
+        public Vector3 size;
     }
     
     //默认情形：使用的Terrain上的Tree数据

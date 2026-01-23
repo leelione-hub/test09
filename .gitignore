@@ -147,3 +147,6 @@ Assets/Scripts/GamePlay/Config/Tables/Generate/TableShopGoodsShow.cs.meta
 tools/sdk/ipa_download/mimumimuha.ipa
 *.xcuserstate
 outputEncrpt
+Packages/com.distantlands.cozy.core
+Assets/Plugins/HoudiniEngineUnity
+Assets/HoudiniEngineAssetCache
