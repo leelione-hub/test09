@@ -1,4 +1,5 @@
 ﻿#pragma kernel CSMain
+#pragma kernel CullInstances
 #include <UnityShaderVariables.cginc>
 
 struct GrassInstanceData
@@ -66,6 +67,50 @@ void CSMain(uint id : SV_DispatchThreadID)
     else
     {
         _VisibleInstances.Append(inst);
+        InterlockedAdd(_ArgsBuffer[1],1);
+    }
+}
+
+struct ChunkInfo
+{
+    uint guid;
+    float3 center;
+    float3 size;
+    uint startIndex;
+    uint count;
+};
+StructuredBuffer<ChunkInfo> _VisibleChunkInfos;
+uint _ChunkCount;
+
+
+[numthreads(64,1,1)]
+void CullInstances(
+    uint3 dispatchThreadID   : SV_DispatchThreadID,
+    uint3 groupID            : SV_GroupID,
+    uint3 groupThreadID      : SV_GroupThreadID,
+    uint  groupIndex         : SV_GroupIndex)
+{
+    int chunkIndex = groupID.x;
+    if(chunkIndex >= _ChunkCount) return;
+    ChunkInfo chunk = _VisibleChunkInfos[chunkIndex];
+
+    uint localInstanceIndex = groupID.y * 64 + groupThreadID.x;
+    if(localInstanceIndex >= chunk.count) return;
+
+    uint globalInstanceIndex = chunk.startIndex + localInstanceIndex;
+
+    // // 安全检查，防止越界读取
+    // uint totalInstances, stride;
+    // _AllInstances.GetDimensions(totalInstances, stride);
+    // if(globalInstanceIndex >= totalInstances) return;
+
+    GrassInstanceData data = _AllInstances[globalInstanceIndex];
+
+    float3 position = data.position;
+
+    if(FrustumTest(position))
+    {
+        _VisibleInstances.Append(data);
         InterlockedAdd(_ArgsBuffer[1],1);
     }
 }

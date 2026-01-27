@@ -109,6 +109,7 @@ Shader "URP/VgSystem/GrassIndirect"
         // }
         #include "../HLSL/VgSystem/VgVertexInput.hlsl"
         #include "../HLSL/VgSystem/VgVertexWind.hlsl"
+        //#include "UnityIndirect.cginc"
     ENDHLSL
 
     SubShader
@@ -138,6 +139,11 @@ Shader "URP/VgSystem/GrassIndirect"
             #pragma vertex vert
             #pragma fragment frag
 
+            //--------------------------------------
+            // GPU Instancing
+            #pragma multi_compile_instancing
+            
+
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
                 float _WindStrength;
@@ -164,7 +170,7 @@ Shader "URP/VgSystem/GrassIndirect"
 
             Varyings vert (Attributes IN)
             {
-                 WindStruct wind_data;
+                WindStruct wind_data;
                 wind_data.windSpeed = 1;
                 wind_data.vertexColor = IN.color;
                 wind_data.leafStrength = 0.1;
@@ -176,7 +182,6 @@ Shader "URP/VgSystem/GrassIndirect"
                 wind_data.windDirection = half2(1,1);
                 
                 half3 wind = PlantWind(wind_data);    
-
                 IN.positionOS.xyz += wind;
                 float3 worldPos = GetInstanceWorldPosition(IN.positionOS,IN.instanceID);
                 Varyings OUT;
@@ -189,7 +194,7 @@ Shader "URP/VgSystem/GrassIndirect"
             {
                 real4 finalColor = SAMPLE_TEXTURE2D(_MainTex,sampler_MainTex,input.uv);
                 clip(finalColor.a - 0.5);
-                return finalColor;
+                return finalColor * _Color;
             }
             ENDHLSL
         }
@@ -206,6 +211,7 @@ Shader "URP/VgSystem/GrassIndirect"
             #pragma vertex vert
             #pragma fragment frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
             //#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
             
             CBUFFER_START(UnityPerMaterial)
@@ -267,6 +273,84 @@ Shader "URP/VgSystem/GrassIndirect"
             half4 frag (Varyings input) : SV_Target
             {
                 return 0;
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "DephtOnly"
+            
+            Tags
+            {
+                "LightMode" = "DepthOnly"
+            }
+            
+            // Render State Commands
+            Blend[_SrcBlend][_DstBlend]
+            ZWrite[_ZWrite]
+            Cull[_Cull]
+            
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+
+            //--------------------------------------
+            // GPU Instancing
+            #pragma multi_compile_instancing
+            
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _Color;
+                float _WindStrength;
+                float _BoundsRadius;
+                float4 _MainTex_ST;
+            CBUFFER_END
+            
+            TEXTURE2D(_MainTex);SAMPLER(sampler_MainTex);
+
+            struct Attributes
+            {
+                float3 positionOS : POSITION;
+                float3 normal     : NORMAL;
+                float2 uv         : TEXCOORD0;
+                float4 color      : COLOR;
+                uint instanceID : SV_InstanceID;
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+                float2 uv         : TEXCOORD0;
+            };
+
+            Varyings vert (Attributes IN)
+            {
+                WindStruct wind_data;
+                wind_data.windSpeed = 1;
+                wind_data.vertexColor = IN.color;
+                wind_data.leafStrength = 0.1;
+                wind_data.normalOS = IN.normal;
+                wind_data.positionOS = IN.positionOS.xyz;
+                wind_data.bendStrength = 1.5;
+                wind_data.bendSpeed = 1;
+                wind_data.bendWait = 1.2;
+                wind_data.windDirection = half2(1,1);
+                
+                half3 wind = PlantWind(wind_data);    
+                IN.positionOS.xyz += wind;
+                float3 worldPos = GetInstanceWorldPosition(IN.positionOS,IN.instanceID);
+                Varyings OUT;
+                OUT.positionCS = TransformWorldToHClip(worldPos);
+                OUT.uv = TRANSFORM_TEX(IN.uv,_MainTex);
+                return OUT;
+            }
+
+            half frag (Varyings input) : SV_Target
+            {
+                real4 finalColor = SAMPLE_TEXTURE2D(_MainTex,sampler_MainTex,input.uv);
+                clip(finalColor.a - 0.5);
+                return input.positionCS.z;
             }
             ENDHLSL
         }

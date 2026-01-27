@@ -62,8 +62,8 @@ public class TerrainTreeDatas
 [System.Serializable]
 public class TerrainChunkData
 {
-    public Bounds                 aabb;
-    public List<TreeInstanceData> trees      = new List<TreeInstanceData>();
+    public Bounds                                  aabb;
+    public List<TreeInstanceData>                  trees    = new List<TreeInstanceData>();
 }
 
 

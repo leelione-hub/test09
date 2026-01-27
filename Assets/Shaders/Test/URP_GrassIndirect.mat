@@ -11,8 +11,10 @@ Material:
   m_Shader: {fileID: 4800000, guid: c5c98c10c52a44ce859e00fee99b4c2d, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
+  m_ValidKeywords:
+  - GRAPHICDRAW_ON
+  m_InvalidKeywords:
+  - _ZWRITE_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -29,8 +31,22 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AlphaTest: 0
+    - _BlendMode: 0
     - _BoundsRadius: 50
+    - _ColorMask: 15
+    - _Cull: 2
+    - _Cutoff: 0.5
+    - _DstBlend: 0
+    - _EnvironmentReflections_Off: 0
+    - _PresetGroup: 0
+    - _SrcBlend: 1
+    - _Stencil: 0
+    - _StencilWithDescription: 0
     - _WindStrength: 0.5
+    - _ZTest: 4
+    - _ZWrite: 1
+    - graphicDraw: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

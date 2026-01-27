@@ -142,7 +142,7 @@ namespace VegetationSystem
         {
             // DispatchCulling();
             // Render();
-            _vgCulling.DispatchCulling();
+            _vgCulling.DispatchCulling(_vgRender.vgDataList);
             _vgRender.Render();
         }
 

@@ -18,8 +18,16 @@ float3 GetInstanceWorldPosition(float3 positionOS,uint instanceID)
     #ifdef GRAPHICDRAW_ON
     GrassInstanceData data = _InstanceBuffer[instanceID];
 
-    float c = cos(data.rotationY);
-    float s = sin(data.rotationY);
+    const float ALIGN_ANGLE = PI * 0.5; // π/2
+    
+    // 总旋转角 = 校正角 + 实例旋转角
+    float totalRotation = ALIGN_ANGLE + data.rotationY;
+    
+    float c = cos(totalRotation);
+    float s = sin(totalRotation);
+    
+    // float c = cos(data.rotationY);
+    // float s = sin(data.rotationY);
 
     float3 pos = positionOS;
             

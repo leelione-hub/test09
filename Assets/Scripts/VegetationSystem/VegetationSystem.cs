@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Unity.Collections;
@@ -18,6 +19,7 @@ namespace VegetationSystem
     }
     public class VegetationSystemObject : MonoBehaviour
     {
+        public  Terrain          terrain;
         public  TextAsset        chunkDatas;
         public  Mesh             renderMesh;
         public  Material         renderMaterial;
@@ -26,8 +28,8 @@ namespace VegetationSystem
         public  bool             ShowGizmos;
         private TerrainTreeDatas treeDatas;
 
-        private List<ChunkInfo> allChunkInfos;
-        private List<ChunkInfo> visibleChunkInfos;
+        private List<OldChunkInfo> allChunkInfos;
+        private List<OldChunkInfo> visibleChunkInfos;
         private Plane[]         planes = new Plane[6];
 
         private GraphicsBuffer argsBuffer;
@@ -37,16 +39,25 @@ namespace VegetationSystem
         private int            preChunkInstanceMaxCount = 0;
         private int            chunkCount               = 0;
 
+        private VgCulling vgCulling;
+        private VgRender  vgRender;
+
         private void Awake()
         {
-            InitData();
             if (cullingCamera == null)
             {
                 cullingCamera = Camera.main;
             }
+
+            if (terrain == null)
+            {
+                terrain                     = this.GetComponent<Terrain>();
+            }
+            terrain.drawTreesAndFoliage = false;
+            InitData();
         }
 
-        private void Update()
+        void Update()
         {
             ChunkCullingOnCPU();
             CSDispatch();
@@ -57,53 +68,58 @@ namespace VegetationSystem
         {
             if (chunkDatas == null) return;
             treeDatas = JsonUtility.FromJson<TerrainTreeDatas>(chunkDatas.text);
+            
+            vgRender  = new VgRender();
+            vgRender.InitVegetationRenderData(treeDatas, terrain.terrainData.size);
+            vgCulling = new VgCulling(vgRender, cullingCS);
+            
             InitBuffer();
             SetMaterialData();
         }
 
         public void InitBuffer()
         {
-            List<GrassInstanceData> datas = new List<GrassInstanceData>();
-            allChunkInfos = new List<ChunkInfo>();
-            foreach (var chunkData in treeDatas.chunkDatas)
-            {
-                int chunkOffset = datas.Count;
-                foreach (var tree in chunkData.trees)
-                {
-                    var grassData = new GrassInstanceData
-                    {
-                        position  = tree.position,
-                        rotationY = tree.rotation,
-                        scale     = tree.scale
-                    };
-                    datas.Add(grassData);
-                }
-
-                int instanceCount = chunkData.trees.Count;
-                preChunkInstanceMaxCount = instanceCount > preChunkInstanceMaxCount
-                    ? instanceCount
-                    : preChunkInstanceMaxCount;
-                var chunk = new ChunkInfo
-                {
-                    startIndex = (uint)chunkOffset,
-                    count      = (uint)instanceCount,
-                    center = chunkData.aabb.center,
-                    size = chunkData.aabb.size,
-                };
-                allChunkInfos.Add(chunk);
-            }
-            int stride = sizeof(float) * (3 + 1 + 2);
-            
-            allInstanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, datas.Count, stride);
-            allInstanceBuffer.SetData(datas);
-            visibleInstanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, datas.Count, stride);
-            argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
-                sizeof(uint) * 5);
+            // List<GrassInstanceData> datas = new List<GrassInstanceData>();
+            // allChunkInfos = new List<OldChunkInfo>();
+            // foreach (var chunkData in treeDatas.chunkDatas)
+            // {
+            //     int chunkOffset = datas.Count;
+            //     foreach (var tree in chunkData.trees)
+            //     {
+            //         var grassData = new GrassInstanceData
+            //         {
+            //             position  = tree.position,
+            //             rotationY = tree.rotation,
+            //             scale     = tree.scale
+            //         };
+            //         datas.Add(grassData);
+            //     }
+            //
+            //     int instanceCount = chunkData.trees.Count;
+            //     preChunkInstanceMaxCount = instanceCount > preChunkInstanceMaxCount
+            //         ? instanceCount
+            //         : preChunkInstanceMaxCount;
+            //     var chunk = new OldChunkInfo
+            //     {
+            //         startIndex = (uint)chunkOffset,
+            //         count      = (uint)instanceCount,
+            //         center = chunkData.aabb.center,
+            //         size = chunkData.aabb.size,
+            //     };
+            //     allChunkInfos.Add(chunk);
+            // }
+            // int stride = sizeof(float) * (3 + 1 + 2);
+            //
+            // allInstanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, datas.Count, stride);
+            // allInstanceBuffer.SetData(datas);
+            // visibleInstanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, datas.Count, stride);
+            // argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
+            //     sizeof(uint) * 5);
         }
 
         public void SetMaterialData()
         {
-            renderMaterial.SetBuffer(VgConstantProperty.INSTANCEBUFFER, visibleInstanceBuffer);
+            // renderMaterial.SetBuffer(VgConstantProperty.INSTANCEBUFFER, visibleInstanceBuffer);
         }
 
         /// <summary>
@@ -111,51 +127,11 @@ namespace VegetationSystem
         /// </summary>
         public void ChunkCullingOnCPU()
         {
-            Stopwatch sp = new Stopwatch();
-            sp.Start();
-            visibleChunkInfos = new List<ChunkInfo>();
-
-            planes = GeometryUtility.CalculateFrustumPlanes(cullingCamera);
+            vgCulling.SetCullingCamera(cullingCamera);
+            //vgCulling.SetAllChunkInfoArray(vgRender.AllChunkInfoForJobs);
             
-            // foreach (var chunk in allChunkInfos)
-            // {
-            //     if (GeometryUtility.TestPlanesAABB(planes, new Bounds(chunk.center, chunk.size)))
-            //     {
-            //         visibleChunkInfos.Add(chunk);
-            //     }
-            // }
-            
-            NativeArray<Plane> planesArry = new NativeArray<Plane>(planes, Allocator.TempJob);
-            NativeArray<ChunkInfo> allChunkInfosArry =
-                new NativeArray<ChunkInfo>(allChunkInfos.ToArray(), Allocator.TempJob);
-            NativeList<ChunkInfo> visibleChunkInfoList = new NativeList<ChunkInfo>(allChunkInfos.Count, Allocator.TempJob);
-            FrustumCullingJob cullingJob = new FrustumCullingJob()
-            {
-                planes            = planesArry,
-                allChunkInfos     = allChunkInfosArry,
-                visibleChunkInfos = visibleChunkInfoList.AsParallelWriter()
-            };
-            
-            JobHandle handle = cullingJob.Schedule(allChunkInfos.Count, 256);
-            handle.Complete();
-            for (int k = 0; k < visibleChunkInfoList.Length; k++)
-            {
-                visibleChunkInfos.Add(visibleChunkInfoList[k]);
-            }
-            //visibleChunkInfos.AddRange(visibleChunkInfoList.ToList());
-            planesArry.Dispose();
-            allChunkInfosArry.Dispose();
-            visibleChunkInfoList.Dispose();
-            
-           
-            chunkCount = visibleChunkInfos.Count;
-            int chunkStride = sizeof(uint) * 2 + sizeof(float) * (3 + 3);
-            visibleChunkBuffer =
-                new GraphicsBuffer(GraphicsBuffer.Target.Structured, visibleChunkInfos.Count, chunkStride);
-            visibleChunkBuffer.SetData(visibleChunkInfos);
-            
-            sp.Stop();
-            Debug.Log($"ChunkCullingOnCPU耗时: {sp.Elapsed.TotalMilliseconds}ms");
+            vgCulling.ScheduleCulling(ref vgRender.visibleChunkGuidHashset);
+            vgRender.RefreshVisibleChunkBuffer();
         }
 
         /// <summary>
@@ -163,22 +139,8 @@ namespace VegetationSystem
         /// </summary>
         public void CSDispatch()
         {
-            uint[] args = new uint[5];
-            args[0] = renderMesh.GetIndexCount(0);
-            args[1] = (uint)0;
-            args[2] = renderMesh.GetIndexStart(0);
-            args[3] = renderMesh.GetBaseVertex(0);
-            args[4] = 0;
-            argsBuffer.SetData(args);
-            visibleInstanceBuffer.SetCounterValue(0);
-            
             int kernel = cullingCS.FindKernel("CullInstances");
-            cullingCS.SetBuffer(kernel, VGC.ALLINSTANCES, allInstanceBuffer);
-            cullingCS.SetBuffer(kernel,VGC.VISIBLEINSTANCES,visibleInstanceBuffer);
-            cullingCS.SetBuffer(kernel, VGC.ARGSBUFFER, argsBuffer);
-            cullingCS.SetBuffer(kernel, VGC.VISIBLECHUNINFOS, visibleChunkBuffer);
-            cullingCS.SetInt(VGC.CHUNKCOUNT,chunkCount);
-            
+            GeometryUtility.CalculateFrustumPlanes(cullingCamera, planes);
             Vector4[] planeData = new Vector4[6];
             for (int i = 0; i < 6; i++)
             {
@@ -193,21 +155,53 @@ namespace VegetationSystem
             }
             cullingCS.SetVectorArray(VGC.FRUSTUMPLANES, planeData);
 
-            int groupX = chunkCount;
-            int groupY = Mathf.CeilToInt(preChunkInstanceMaxCount / 64f);
-            cullingCS.Dispatch(kernel, groupX, groupY, 1);
+            if (vgRender == null) return;
+
+            for (int i = 0; i < vgRender.vegetationRenderDataList.Count; i++)
+            {
+                var    renderData = vgRender.vegetationRenderDataList[i];
+                uint[] args       = new uint[5];
+                args[0] = renderData.mesh.GetIndexCount(0);
+                args[1] = (uint)0;
+                args[2] = renderData.mesh.GetIndexStart(0);
+                args[3] = renderData.mesh.GetBaseVertex(0);
+                args[4] = 0;
+                renderData.argsBuffer.SetData(args);
+                renderData.VisibleInstanceBuffer.SetCounterValue(0);
+                
+                cullingCS.SetBuffer(kernel, VGC.ALLINSTANCES, renderData.AllInstanceBuffer);
+                cullingCS.SetBuffer(kernel,VGC.VISIBLEINSTANCES,renderData.VisibleInstanceBuffer);
+                cullingCS.SetBuffer(kernel, VGC.ARGSBUFFER, renderData.argsBuffer);
+                cullingCS.SetBuffer(kernel, VGC.VISIBLECHUNINFOS, renderData.VisibleChunkBuffer);
+                cullingCS.SetInt(VGC.CHUNKCOUNT,renderData.visibleChunkCount);
+
+                if (renderData.visibleChunkCount < 1)
+                {
+                    continue;
+                }
+                
+                int groupX = renderData.visibleChunkCount;
+                int groupY = Mathf.CeilToInt(renderData.chunkMaxCount / 64f);
+                cullingCS.Dispatch(kernel, groupX, groupY, 1);
+                
+                // // 方法2a: 使用GraphicsFence
+                // var fence = Graphics.CreateGraphicsFence(GraphicsFenceType.AsyncQueueSynchronisation, SynchronisationStageFlags.ComputeProcessing);
+                // Graphics.WaitOnAsyncGraphicsFence(fence);
+                //
+                // // 3. 同步读取数据
+                // renderData.argsBuffer.GetData(args);
+                // Debug.Log($"{renderData.rp.material.name}修改后的值: args[1] = {args[1]}");
+            }
         }
         
         public void Render()
         {
-            RenderParams rp = new RenderParams(renderMaterial)
+           
+            if (vgRender == null) return;
+            foreach (var renderData in vgRender.vegetationRenderDataList)
             {
-                layer             = gameObject.layer,
-                shadowCastingMode = ShadowCastingMode.On,
-                receiveShadows    = true,
-                worldBounds       = new Bounds(Vector3.zero,Vector3.one * 5000),
-            };
-            Graphics.RenderMeshIndirect(rp,renderMesh,argsBuffer);
+                Graphics.RenderMeshIndirect(renderData.rp,renderData.mesh,renderData.argsBuffer);
+            }
         }
 
         public void OnDrawGizmos()
@@ -217,19 +211,34 @@ namespace VegetationSystem
                 return;
             }
 
-            if (allChunkInfos != null)
+            if (vgRender != null)
             {
-                foreach (var chunk in allChunkInfos)
+                var visibleChunkList = new List<ChunkInfoForJob>();
+                foreach (var chunk in vgRender.vegetationChunkForJobDataNativeList)
                 {
+                    if (vgRender.visibleChunkGuidHashset.Contains(chunk.guid))
+                    {
+                        visibleChunkList.Add(chunk);
+                    }
                     Gizmos.color = Color.red;
-                    Gizmos.DrawWireCube(chunk.center,chunk.size - Vector3.one);
+                    Gizmos.DrawWireCube(chunk.center,chunk.extents * 2f - Vector3.one);
                 }
 
-                foreach (var chunk in visibleChunkInfos)
+                foreach (var chunk in visibleChunkList)
                 {
                     Gizmos.color = Color.green;
-                    Gizmos.DrawWireCube(chunk.center,chunk.size - Vector3.one);
+                    Gizmos.DrawWireCube(chunk.center,chunk.extents * 2f - Vector3.one);
                 }
+            }
+        }
+
+        public void OnDestroy()
+        {
+            vgRender?.Dispose();
+            vgCulling?.Dispose();
+            if (terrain != null)
+            {
+                terrain.drawTreesAndFoliage = true;
             }
         }
     }
