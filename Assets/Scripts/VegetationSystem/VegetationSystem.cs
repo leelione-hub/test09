@@ -128,8 +128,6 @@ namespace VegetationSystem
         public void ChunkCullingOnCPU()
         {
             vgCulling.SetCullingCamera(cullingCamera);
-            //vgCulling.SetAllChunkInfoArray(vgRender.AllChunkInfoForJobs);
-            
             vgCulling.ScheduleCulling(ref vgRender.visibleChunkGuidHashset);
             vgRender.RefreshVisibleChunkBuffer();
         }
@@ -154,26 +152,46 @@ namespace VegetationSystem
                 );
             }
             cullingCS.SetVectorArray(VGC.FRUSTUMPLANES, planeData);
+            
+            //temp
+            uint[] args       = new uint[5];
+            //
 
             if (vgRender == null) return;
 
             for (int i = 0; i < vgRender.vegetationRenderDataList.Count; i++)
             {
                 var    renderData = vgRender.vegetationRenderDataList[i];
-                uint[] args       = new uint[5];
-                args[0] = renderData.mesh.GetIndexCount(0);
-                args[1] = (uint)0;
-                args[2] = renderData.mesh.GetIndexStart(0);
-                args[3] = renderData.mesh.GetBaseVertex(0);
-                args[4] = 0;
-                renderData.argsBuffer.SetData(args);
-                renderData.VisibleInstanceBuffer.SetCounterValue(0);
-                
+                for (int j = 0; j < renderData.LodDatas.Length; j++)
+                {
+                    var lodData = renderData.LodDatas[j];
+                    for (int k = 0; k < lodData.SubMeshDatas.Length; k++)
+                    {
+                        uint[] subArgs = new uint[5];
+                        subArgs[0] = lodData.mesh.GetIndexCount(k);
+                        subArgs[1] = (uint)0;
+                        subArgs[2] = lodData.mesh.GetIndexStart(k);
+                        subArgs[3] = lodData.mesh.GetBaseVertex(k);
+                        subArgs[4] = 0;
+                        lodData.SubMeshDatas[k].argsBuffer.SetData(subArgs);
+                    }
+                    lodData.VisibleInstanceBuffer.SetCounterValue(0);
+                }
                 cullingCS.SetBuffer(kernel, VGC.ALLINSTANCES, renderData.AllInstanceBuffer);
-                cullingCS.SetBuffer(kernel,VGC.VISIBLEINSTANCES,renderData.VisibleInstanceBuffer);
-                cullingCS.SetBuffer(kernel, VGC.ARGSBUFFER, renderData.argsBuffer);
+                // cullingCS.SetBuffer(kernel,VGC.VISIBLEINSTANCES,lodData.VisibleInstanceBuffer);
+                // cullingCS.SetBuffer(kernel, VGC.ARGSBUFFER, lodData.SubMeshDatas[0].argsBuffer);
                 cullingCS.SetBuffer(kernel, VGC.VISIBLECHUNINFOS, renderData.VisibleChunkBuffer);
                 cullingCS.SetInt(VGC.CHUNKCOUNT,renderData.visibleChunkCount);
+                
+                cullingCS.SetVector(VGC.CAMERAPOSITION,cullingCamera.gameObject.transform.position);
+
+                cullingCS.SetBuffer(kernel, VGC.LOD0VISIBLEINSTANCES, renderData.LodDatas[0].VisibleInstanceBuffer);
+                cullingCS.SetBuffer(kernel, VGC.LOD1VISIBLEINSTANCES, renderData.LodDatas[1].VisibleInstanceBuffer);
+                cullingCS.SetBuffer(kernel, VGC.LOD2VISIBLEINSTANCES, renderData.LodDatas[2].VisibleInstanceBuffer);
+                cullingCS.SetBuffer(kernel, VGC.LOD0ARGSBUFFER, renderData.LodDatas[0].SubMeshDatas[0].argsBuffer);
+                cullingCS.SetBuffer(kernel, VGC.LOD1ARGSBUFFER, renderData.LodDatas[1].SubMeshDatas[0].argsBuffer);
+                cullingCS.SetBuffer(kernel, VGC.LOD2ARGSBUFFER, renderData.LodDatas[2].SubMeshDatas[0].argsBuffer);
+                    
 
                 if (renderData.visibleChunkCount < 1)
                 {
@@ -183,14 +201,93 @@ namespace VegetationSystem
                 int groupX = renderData.visibleChunkCount;
                 int groupY = Mathf.CeilToInt(renderData.chunkMaxCount / 64f);
                 cullingCS.Dispatch(kernel, groupX, groupY, 1);
+
+                for (int n = 0; n < renderData.LodDatas.Length; n++)
+                {
+                    for (int k = 0; k < renderData.LodDatas[n].SubMeshDatas.Length; k++)
+                    {
+                        GraphicsBuffer.CopyCount(renderData.LodDatas[n].VisibleInstanceBuffer,renderData.LodDatas[n].SubMeshDatas[k].argsBuffer,sizeof(uint) * 1);
+                    }
+                }
+                
+                // 方法2a: 使用GraphicsFence
+                var fence = Graphics.CreateGraphicsFence(GraphicsFenceType.AsyncQueueSynchronisation, SynchronisationStageFlags.ComputeProcessing);
+                Graphics.WaitOnAsyncGraphicsFence(fence);
+
+                foreach (var lodData in renderData.LodDatas)
+                {
+                    foreach (var subMeshData in lodData.SubMeshDatas)
+                    {
+                        subMeshData.argsBuffer.GetData(args);
+                        Debug.Log($"subMeshData {subMeshData.rp.material.name}修改后的值: args[1] = {args[1]}");
+                    }
+                }
+
+                foreach (var lodData in renderData.LodDatas)
+                {
+                    foreach (var subMeshData in lodData.SubMeshDatas)
+                    {
+                        // 3. 同步读取数据
+                        subMeshData.argsBuffer.GetData(args);
+                        Debug.Log($"{subMeshData.rp.material.name}修改后的值: args[1] = {args[1]}");
+                    }
+                }
+                Debug.Log("------------------------------------------");
+                
+                // uint[] args       = new uint[5];
+                // args[0] = renderData.mesh.GetIndexCount(0);
+                // args[1] = (uint)0;
+                // args[2] = renderData.mesh.GetIndexStart(0);
+                // args[3] = renderData.mesh.GetBaseVertex(0);
+                // args[4] = 0;
+                // renderData.argsBuffer.SetData(args);
+                // for (int k = 0; k < renderData.SubMeshDatas.Length; k++)
+                // {
+                //     uint[] subArgs = new uint[5];
+                //     subArgs[0] = renderData.mesh.GetIndexCount(k);
+                //     subArgs[1] = (uint)0;
+                //     subArgs[2] = renderData.mesh.GetIndexStart(k);
+                //     subArgs[3] = renderData.mesh.GetBaseVertex(k);
+                //     subArgs[4] = 0;
+                //     renderData.SubMeshDatas[k].argsBuffer.SetData(subArgs);
+                // }
+                // renderData.VisibleInstanceBuffer.SetCounterValue(0);
+                //
+                // cullingCS.SetBuffer(kernel, VGC.ALLINSTANCES, renderData.AllInstanceBuffer);
+                // cullingCS.SetBuffer(kernel,VGC.VISIBLEINSTANCES,renderData.VisibleInstanceBuffer);
+                // cullingCS.SetBuffer(kernel, VGC.ARGSBUFFER, renderData.SubMeshDatas[0].argsBuffer);
+                // cullingCS.SetBuffer(kernel, VGC.VISIBLECHUNINFOS, renderData.VisibleChunkBuffer);
+                // cullingCS.SetInt(VGC.CHUNKCOUNT,renderData.visibleChunkCount);
+                //
+                // if (renderData.visibleChunkCount < 1)
+                // {
+                //     continue;
+                // }
+                //
+                // int groupX = renderData.visibleChunkCount;
+                // int groupY = Mathf.CeilToInt(renderData.chunkMaxCount / 64f);
+                // cullingCS.Dispatch(kernel, groupX, groupY, 1);
+                //
+                // for (int k = 0; k < renderData.SubMeshDatas.Length; k++)
+                // {
+                //     GraphicsBuffer.CopyCount(renderData.VisibleInstanceBuffer,renderData.SubMeshDatas[k].argsBuffer,sizeof(uint) * 1);
+                // }
                 
                 // // 方法2a: 使用GraphicsFence
                 // var fence = Graphics.CreateGraphicsFence(GraphicsFenceType.AsyncQueueSynchronisation, SynchronisationStageFlags.ComputeProcessing);
                 // Graphics.WaitOnAsyncGraphicsFence(fence);
                 //
+                // foreach (var subMeshData in renderData.SubMeshDatas)
+                // {
+                //     subMeshData.argsBuffer.GetData(args);
+                //     Debug.Log($"subMeshData {renderData.rp.material.name}修改后的值: args[1] = {args[1]}");
+                // }
+                //
                 // // 3. 同步读取数据
                 // renderData.argsBuffer.GetData(args);
                 // Debug.Log($"{renderData.rp.material.name}修改后的值: args[1] = {args[1]}");
+                //
+                // Debug.Log("------------------------------------------");
             }
         }
         
@@ -200,7 +297,19 @@ namespace VegetationSystem
             if (vgRender == null) return;
             foreach (var renderData in vgRender.vegetationRenderDataList)
             {
-                Graphics.RenderMeshIndirect(renderData.rp,renderData.mesh,renderData.argsBuffer);
+                // for (int i = 0; i < renderData.SubMeshDatas.Length; i++)
+                // {
+                //     Graphics.RenderMeshIndirect(renderData.SubMeshDatas[i].rp,renderData.mesh,renderData.SubMeshDatas[i].argsBuffer);
+                // }
+                for (int i = 0; i < renderData.LodDatas.Length; i++)
+                {
+                    var lodData = renderData.LodDatas[i];
+                    for (int j = 0; j < lodData.SubMeshDatas.Length; j++)
+                    {
+                        Graphics.RenderMeshIndirect(lodData.SubMeshDatas[j].rp, lodData.mesh,
+                            lodData.SubMeshDatas[j].argsBuffer);
+                    }
+                }
             }
         }
 

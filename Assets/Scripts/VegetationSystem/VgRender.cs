@@ -6,6 +6,7 @@ using Unity.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 
 //1.从json中获取所有chunkinfolist
 //2.利用job粗粒度剔除不可见的chunk，得到visibleChunkinfolist
@@ -17,15 +18,22 @@ namespace VegetationSystem
 {
     public class VgConstantProperty
     {
-        public static int    INSTANCEBUFFER   = Shader.PropertyToID("_InstanceBuffer");
-        public static int    ALLINSTANCES     = Shader.PropertyToID("_AllInstances");
-        public static int    VISIBLEINSTANCES = Shader.PropertyToID("_VisibleInstances");
-        public static int    ARGSBUFFER       = Shader.PropertyToID("_ArgsBuffer");
-        public static int    FRUSTUMPLANES    = Shader.PropertyToID("_FrustumPlanes");
-        public static int    ENABLECULLING    = Shader.PropertyToID("EnableFrustumCulling");
-        public static int    VISIBLECHUNINFOS = Shader.PropertyToID("_VisibleChunkInfos");
-        public static int    CHUNKCOUNT       = Shader.PropertyToID("_ChunkCount");
-        public static string KW_GPUINSTANCEON = "GRAPHICDRAW_ON";
+        public static int    INSTANCEBUFFER       = Shader.PropertyToID("_InstanceBuffer");
+        public static int    ALLINSTANCES         = Shader.PropertyToID("_AllInstances");
+        public static int    VISIBLEINSTANCES     = Shader.PropertyToID("_VisibleInstances");
+        public static int    ARGSBUFFER           = Shader.PropertyToID("_ArgsBuffer");
+        public static int    FRUSTUMPLANES        = Shader.PropertyToID("_FrustumPlanes");
+        public static int    ENABLECULLING        = Shader.PropertyToID("EnableFrustumCulling");
+        public static int    VISIBLECHUNINFOS     = Shader.PropertyToID("_VisibleChunkInfos");
+        public static int    CHUNKCOUNT           = Shader.PropertyToID("_ChunkCount");
+        public static int    LOD0VISIBLEINSTANCES = Shader.PropertyToID("_Lod0VisibleInstances");
+        public static int    LOD1VISIBLEINSTANCES = Shader.PropertyToID("_Lod1VisibleInstances");
+        public static int    LOD2VISIBLEINSTANCES = Shader.PropertyToID("_Lod2VisibleInstances");
+        public static int    LOD0ARGSBUFFER       = Shader.PropertyToID("_Lod0ArgsBuffer");
+        public static int    LOD1ARGSBUFFER       = Shader.PropertyToID("_Lod1ArgsBuffer");
+        public static int    LOD2ARGSBUFFER       = Shader.PropertyToID("_Lod2ArgsBuffer");
+        public static int    CAMERAPOSITION       = Shader.PropertyToID("_CameraPosition");
+        public static string KW_GPUINSTANCEON     = "GRAPHICDRAW_ON";
     }
         
     #region StructData
@@ -49,16 +57,35 @@ namespace VegetationSystem
         public int chunkMaxCount;
         public int visibleChunkCount;
             
-        public RenderParams   rp;
+        // public RenderParams   rp;
         public Mesh           mesh;
         public GraphicsBuffer AllInstanceBuffer;
         public GraphicsBuffer VisibleChunkBuffer;
         public GraphicsBuffer VisibleInstanceBuffer;
-        public GraphicsBuffer argsBuffer;
+        // public GraphicsBuffer argsBuffer;
 
-        public List<GrassInstanceData> AllInstanceDatas;
-        public List<ChunkInfoBuffer>   allChunkInfos;
-        public List<ChunkInfoBuffer>   visibleChunkInfos;
+        public List<GrassInstanceData>       AllInstanceDatas;
+        public List<ChunkInfoBuffer>         allChunkInfos;
+        public List<ChunkInfoBuffer>         visibleChunkInfos;
+        
+        public VegetationRenderSubMeshData[] SubMeshDatas;
+        public Vector4                       lodScreenHeigh;
+        public VegetaionRenderLodData[]      LodDatas;
+    }
+
+    public struct VegetaionRenderLodData
+    {
+        public GraphicsBuffer VisibleInstanceBuffer;
+        public  Mesh           mesh;
+
+        public VegetationRenderSubMeshData[] SubMeshDatas;
+    }
+
+    public struct VegetationRenderSubMeshData
+    {
+        public int            subMesh;
+        public RenderParams   rp;
+        public GraphicsBuffer argsBuffer;
     }
     
     public struct GrassInstanceData
@@ -401,6 +428,35 @@ namespace VegetationSystem
             };
             return instanceData;
         }
+
+        public VegetationRenderSubMeshData ConverToSubMeshData(Material material, int subMesh, int layer,
+            ShadowCastingMode shadowMode, Mesh mesh, GraphicsBuffer visibleBuffer)
+        {
+            var subMat          = new Material(material);
+            RenderParams subRp = new RenderParams(subMat)
+            {
+                worldBounds       = new Bounds(Vector3.zero, Vector3.one * 5000f),
+                layer             = layer,
+                shadowCastingMode = shadowMode
+            };
+                    
+            VegetationRenderSubMeshData subMeshData = new VegetationRenderSubMeshData();
+            subMeshData.subMesh = subMesh;
+            subMeshData.argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
+                sizeof(uint) * 5);
+            uint[] subArgs = new uint[5];
+            subArgs[0] = mesh.GetIndexCount(subMesh);
+            subArgs[1] = (uint)0;
+            subArgs[2] = mesh.GetIndexStart(subMesh);
+            subArgs[3] = mesh.GetBaseVertex(subMesh);
+            subArgs[4] = 0;
+            subMeshData.argsBuffer.SetData(subArgs);
+                   
+            subMeshData.rp = subRp;
+            subMeshData.rp.material.EnableKeyword(VgConstantProperty.KW_GPUINSTANCEON);
+            subMeshData.rp.material.SetBuffer(VgConstantProperty.INSTANCEBUFFER, visibleBuffer);
+            return subMeshData;
+        }
         
         public void InitVegetationRenderData(TerrainTreeDatas treeDatas, Vector3 terrainSize)
         {
@@ -500,30 +556,31 @@ namespace VegetationSystem
 #if UNITY_EDITOR
                 prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
 #endif
-                var      meshRenderer = prefab.GetComponentInChildren<MeshRenderer>();
-                Material mat          = new Material(meshRenderer.sharedMaterial);
+                var      meshRenderer   = prefab.GetComponentInChildren<MeshRenderer>();
+                // var      sharedMaterial = meshRenderer.sharedMaterial;
                 var      shadowMode   = meshRenderer.shadowCastingMode;
                 Mesh     mesh         = prefab.GetComponentInChildren<MeshFilter>().sharedMesh;
 
-                RenderParams rp = new RenderParams(mat)
-                {
-                    worldBounds       = new Bounds(Vector3.zero, Vector3.one * 5000f),
-                    layer             = prefab.layer,
-                    shadowCastingMode = shadowMode
-                };
+                // RenderParams rp = new RenderParams(mat)
+                // {
+                //     worldBounds       = new Bounds(Vector3.zero, Vector3.one * 5000f),
+                //     layer             = prefab.layer,
+                //     shadowCastingMode = shadowMode
+                // };
                 VegetationRenderData data = new VegetationRenderData();
+                
                 data.prototypeIndex = prototypeIndex;
-                data.rp             = rp;
+                // data.rp             = rp;
                 data.mesh           = mesh;
-                data.argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
-                    sizeof(uint) * 5);
-                uint[] args = new uint[5];
-                args[0] = mesh.GetIndexCount(0);
-                args[1] = (uint)dicInstanceDatas[prototypeIndex].Count;
-                args[2] = mesh.GetIndexStart(0);
-                args[3] = mesh.GetBaseVertex(0);
-                args[4] = 0;
-                data.argsBuffer.SetData(args);
+                // data.argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
+                //     sizeof(uint) * 5);
+                // uint[] args = new uint[5];
+                // args[0] = mesh.GetIndexCount(0);
+                // args[1] = (uint)dicInstanceDatas[prototypeIndex].Count;
+                // args[2] = mesh.GetIndexStart(0);
+                // args[3] = mesh.GetBaseVertex(0);
+                // args[4] = 0;
+                // data.argsBuffer.SetData(args);
 
                 data.instanceMaxCount  = dicInstanceDatas[prototypeIndex].Count;
                 data.chunkMaxCount     = dicSingleChunkMaxCount[prototypeIndex];
@@ -542,8 +599,45 @@ namespace VegetationSystem
                 data.VisibleInstanceBuffer = visibleInstanceBuffer;
                 data.VisibleChunkBuffer =
                     new GraphicsBuffer(GraphicsBuffer.Target.Structured, data.chunkMaxCount, chunkinfoStride);
-                data.rp.material.EnableKeyword(VgConstantProperty.KW_GPUINSTANCEON);
-                data.rp.material.SetBuffer(VgConstantProperty.INSTANCEBUFFER, data.VisibleInstanceBuffer);
+
+                data.lodScreenHeigh = Vector3.one;
+                var lodGroup = prefab.GetComponentInChildren<LODGroup>();
+                if (lodGroup == null)
+                {
+                    throw new Exception($"Prefab:{prefab.name} 不包含LODGroup组件，这是不合法！！！！");
+                }
+                var lods     = lodGroup.GetLODs();
+                data.LodDatas = new VegetaionRenderLodData[3];  //默认就是三级LOD
+                for (int j = 0; j < lods.Length && j < 3; j++)
+                {
+                    if (j == 0) data.lodScreenHeigh.x = lods[j].screenRelativeTransitionHeight;
+                    if (j == 1) data.lodScreenHeigh.y = lods[j].screenRelativeTransitionHeight;
+                    if (j == 2) data.lodScreenHeigh.z = lods[j].screenRelativeTransitionHeight;
+                    var                    lodRender  = lods[j].renderers[0];
+                    var                    lodMesh    = lodRender.GetComponent<MeshFilter>().sharedMesh;
+                    VegetaionRenderLodData lodData    = new VegetaionRenderLodData();
+                    lodData.mesh            = lodMesh;
+
+                    lodData.SubMeshDatas    = new VegetationRenderSubMeshData[lodMesh.subMeshCount];
+                    lodData.VisibleInstanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Append,
+                        data.instanceMaxCount, instanceStride);
+                    for (int n = 0; n < lodMesh.subMeshCount; n++)
+                    {
+                        lodData.SubMeshDatas[n] = ConverToSubMeshData(lodRender.sharedMaterials[n], n, prefab.layer,
+                            lodRender.shadowCastingMode, lodMesh,lodData.VisibleInstanceBuffer);
+                    }
+                    data.LodDatas[j] = lodData;
+                }
+                
+                data.SubMeshDatas = new VegetationRenderSubMeshData[mesh.subMeshCount];
+                for (int k = 0; k < mesh.subMeshCount; k++)
+                {
+                    data.SubMeshDatas[k] = ConverToSubMeshData(meshRenderer.sharedMaterials[k], k, prefab.layer,
+                        shadowMode, mesh, data.VisibleInstanceBuffer);
+                }
+                
+                // data.rp.material.EnableKeyword(VgConstantProperty.KW_GPUINSTANCEON);
+                // data.rp.material.SetBuffer(VgConstantProperty.INSTANCEBUFFER, data.VisibleInstanceBuffer);
                 vegetationRenderDataList.Add(data);
             }
         }
@@ -593,11 +687,16 @@ namespace VegetationSystem
             // }
             foreach (var renderData in vegetationRenderDataList)
             {
-                renderData.rp.material.DisableKeyword(VgConstantProperty.KW_GPUINSTANCEON);
+                // renderData.rp.material.DisableKeyword(VgConstantProperty.KW_GPUINSTANCEON);
                 renderData.AllInstanceBuffer.Dispose();
-                renderData.argsBuffer.Dispose();
+                // renderData.argsBuffer.Dispose();
                 renderData.VisibleChunkBuffer.Dispose();
                 renderData.VisibleInstanceBuffer.Dispose();
+                foreach (var subMeshData in renderData.SubMeshDatas)
+                {
+                    subMeshData.argsBuffer.Dispose();
+                    subMeshData.rp.material.DisableKeyword(VgConstantProperty.KW_GPUINSTANCEON);
+                }
             }
         }
     }

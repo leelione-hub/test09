@@ -20,7 +20,7 @@
     	[SubToggle(Preset,_ALPHATEST_ON)] _AlphaTest("启用透明裁剪", Float) = 0
     	[Sub(Preset)] _Cutoff("透明裁剪阈值", Range(0,1)) = 0.5
 		[SubEnum(Preset, UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 2
-    	[SubToggle(Preset,_ENVIRONMENTREFLECTIONS_OFF,false)] _EnvironmentReflections_Off("_EnvironmentReflections Off",Float) = 0
+    	[SubToggle(Preset,_ENVIRONMENTREFLECTIONS_OFF)] _EnvironmentReflections_Off("_EnvironmentReflections Off",Float) = 0
 		[SubEnum(Preset, UnityEngine.Rendering.BlendMode)] _SrcBlend ("SrcBlend", Float) = 1
 		[SubEnum(Preset, UnityEngine.Rendering.BlendMode)] _DstBlend ("DstBlend", Float) = 0
 		[SubToggle(Preset)] _ZWrite ("ZWrite ", Float) = 1
