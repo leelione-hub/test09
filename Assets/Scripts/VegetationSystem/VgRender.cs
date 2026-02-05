@@ -33,6 +33,7 @@ namespace VegetationSystem
         public static int    LOD1ARGSBUFFER       = Shader.PropertyToID("_Lod1ArgsBuffer");
         public static int    LOD2ARGSBUFFER       = Shader.PropertyToID("_Lod2ArgsBuffer");
         public static int    CAMERAPOSITION       = Shader.PropertyToID("_CameraPosition");
+        public static int    LODDISTANCE          = Shader.PropertyToID("_LodDistance");
         public static string KW_GPUINSTANCEON     = "GRAPHICDRAW_ON";
     }
         
@@ -70,6 +71,7 @@ namespace VegetationSystem
         
         public VegetationRenderSubMeshData[] SubMeshDatas;
         public Vector4                       lodScreenHeigh;
+        public Vector4                       lodDistance;
         public VegetaionRenderLodData[]      LodDatas;
     }
 
@@ -457,6 +459,11 @@ namespace VegetationSystem
             subMeshData.rp.material.SetBuffer(VgConstantProperty.INSTANCEBUFFER, visibleBuffer);
             return subMeshData;
         }
+
+        public float CaculateLodDistance(float n, float h1, float y,float H)
+        {
+            return (n * y) / (h1 * H) - n;
+        }
         
         public void InitVegetationRenderData(TerrainTreeDatas treeDatas, Vector3 terrainSize)
         {
@@ -608,11 +615,32 @@ namespace VegetationSystem
                 }
                 var lods     = lodGroup.GetLODs();
                 data.LodDatas = new VegetaionRenderLodData[3];  //默认就是三级LOD
+                float near   = Camera.main.nearClipPlane;
+                var   tanfov = MathF.Tan(Camera.main.fieldOfView * 0.5f * 3.14159f / 180f);
+                var   h1     = tanfov * near;
+                var   tan25  = Mathf.Tan(Mathf.PI * 0.1389f);
                 for (int j = 0; j < lods.Length && j < 3; j++)
                 {
-                    if (j == 0) data.lodScreenHeigh.x = lods[j].screenRelativeTransitionHeight;
-                    if (j == 1) data.lodScreenHeigh.y = lods[j].screenRelativeTransitionHeight;
-                    if (j == 2) data.lodScreenHeigh.z = lods[j].screenRelativeTransitionHeight;
+                    float H =  lods[j].screenRelativeTransitionHeight;
+                    float y = mesh.bounds.extents.y;
+                    float lodDistance = CaculateLodDistance(near, h1, y, H);
+                    if (j == 0)
+                    {
+                        // data.lodScreenHeigh.x = lods[j].screenRelativeTransitionHeight;
+                        data.lodDistance.x = lodDistance;
+                    }
+
+                    if (j == 1)
+                    {
+                        data.lodScreenHeigh.y = lods[j].screenRelativeTransitionHeight;
+                        data.lodDistance.y    = lodDistance;
+                    }
+
+                    if (j == 2)
+                    {
+                        data.lodScreenHeigh.z = lods[j].screenRelativeTransitionHeight;
+                        data.lodDistance.z    = lodDistance;
+                    }
                     var                    lodRender  = lods[j].renderers[0];
                     var                    lodMesh    = lodRender.GetComponent<MeshFilter>().sharedMesh;
                     VegetaionRenderLodData lodData    = new VegetaionRenderLodData();
@@ -624,7 +652,7 @@ namespace VegetationSystem
                     for (int n = 0; n < lodMesh.subMeshCount; n++)
                     {
                         lodData.SubMeshDatas[n] = ConverToSubMeshData(lodRender.sharedMaterials[n], n, prefab.layer,
-                            lodRender.shadowCastingMode, lodMesh,lodData.VisibleInstanceBuffer);
+                            j < 1 ? lodRender.shadowCastingMode : ShadowCastingMode.Off, lodMesh,lodData.VisibleInstanceBuffer);
                     }
                     data.LodDatas[j] = lodData;
                 }

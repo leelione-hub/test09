@@ -172,6 +172,66 @@
             }
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "DepthOnly"
+            
+            Tags
+            {
+                "LightMode" = "DepthOnly"
+            }
+            
+            // Render State Commands
+            Blend[_SrcBlend][_DstBlend]
+            ZWrite[_ZWrite]
+            Cull[_Cull]
+            
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _Color;
+                float _WindStrength;
+                float _BoundsRadius;
+                float4 _MainTex_ST;
+            CBUFFER_END
+            
+            TEXTURE2D(_MainTex);SAMPLER(sampler_MainTex);
+
+            struct Attributes
+            {
+                float3 positionOS : POSITION;
+                float3 normal     : NORMAL;
+                float2 uv         : TEXCOORD0;
+                float4 color      : COLOR;
+                uint instanceID : SV_InstanceID;
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+                float2 uv         : TEXCOORD0;
+            };
+
+            Varyings vert (Attributes IN)
+            {
+                float3 worldPos = GetInstanceWorldPosition(IN.positionOS,IN.instanceID);
+                Varyings OUT;
+                OUT.positionCS = TransformWorldToHClip(worldPos);
+                OUT.uv = TRANSFORM_TEX(IN.uv,_MainTex);
+                return OUT;
+            }
+
+            half frag (Varyings input) : SV_Target
+            {
+                real4 finalColor = SAMPLE_TEXTURE2D(_MainTex,sampler_MainTex,input.uv);
+                clip(finalColor.a - 0.5);
+                return input.positionCS.z;
+            }
+            ENDHLSL
+        }
     }
     CustomEditor "LWGUI.LWGUI"
 }

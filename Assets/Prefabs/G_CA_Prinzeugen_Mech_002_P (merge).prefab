@@ -58,6 +58,21 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7645055490693652465, guid: 45efc9f9e2b2cc546a6ab4afde7eda5f,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -7220719569162047158, guid: 45efc9f9e2b2cc546a6ab4afde7eda5f,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -4259035233143952778, guid: 45efc9f9e2b2cc546a6ab4afde7eda5f,
+        type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 7e0f76a49556976429231b9992aa9bb2, type: 2}
     - target: {fileID: -1032369915610279456, guid: 45efc9f9e2b2cc546a6ab4afde7eda5f,
         type: 3}
       propertyPath: m_DirtyAABB
@@ -93,10 +108,25 @@ PrefabInstance:
       propertyPath: m_AABB.m_Extent.z
       value: 0.0009774682
       objectReference: {fileID: 0}
+    - target: {fileID: -859481612630229451, guid: 45efc9f9e2b2cc546a6ab4afde7eda5f,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 45efc9f9e2b2cc546a6ab4afde7eda5f,
         type: 3}
       propertyPath: m_Name
       value: G_CA_Prinzeugen_Mech_002_P (merge)
+      objectReference: {fileID: 0}
+    - target: {fileID: 1326121809193356010, guid: 45efc9f9e2b2cc546a6ab4afde7eda5f,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3065099474919019063, guid: 45efc9f9e2b2cc546a6ab4afde7eda5f,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4199608087545575087, guid: 45efc9f9e2b2cc546a6ab4afde7eda5f,
         type: 3}
@@ -132,6 +162,16 @@ PrefabInstance:
         type: 3}
       propertyPath: m_AABB.m_Extent.z
       value: 0.00017953431
+      objectReference: {fileID: 0}
+    - target: {fileID: 6659424704002416367, guid: 45efc9f9e2b2cc546a6ab4afde7eda5f,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8653334056301897200, guid: 45efc9f9e2b2cc546a6ab4afde7eda5f,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

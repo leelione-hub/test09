@@ -83,6 +83,7 @@ StructuredBuffer<ChunkInfo> _VisibleChunkInfos;
 uint _ChunkCount;
 float3 _CameraPosition;
 float4 _LodScreenHeight;
+float4 _LodDistance;
 AppendStructuredBuffer<GrassInstanceData> _Lod0VisibleInstances;
 AppendStructuredBuffer<GrassInstanceData> _Lod1VisibleInstances;
 AppendStructuredBuffer<GrassInstanceData> _Lod2VisibleInstances;
@@ -119,17 +120,17 @@ void CullInstances(
     {
         float distance = length(_CameraPosition - position);
 
-        if(distance < 20)
+        if(distance < _LodDistance.x)
         {
             _Lod0VisibleInstances.Append(data);
             InterlockedAdd(_Lod0ArgsBuffer[1],1);
         }
-        else if(distance < 50)
+        else if(distance < _LodDistance.y)
         {
             _Lod1VisibleInstances.Append(data);
             InterlockedAdd(_Lod1ArgsBuffer[1],1);
         }
-        else if(distance < 100)
+        else if(distance < _LodDistance.z)
         {
             _Lod2VisibleInstances.Append(data);
             InterlockedAdd(_Lod2ArgsBuffer[1],1);

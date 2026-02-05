@@ -185,6 +185,22 @@ namespace VegetationSystem
                 
                 cullingCS.SetVector(VGC.CAMERAPOSITION,cullingCamera.gameObject.transform.position);
 
+                //临时方案，适配动态修改lod全局参数
+                Vector4 lodDistance = renderData.lodDistance;
+                for (int lod = 0; lod < 4; lod++)
+                {
+                    if (lod < QualitySettings.maximumLODLevel)
+                    {
+                        lodDistance[lod] = -1f;
+                    }
+                    else
+                    {
+                        lodDistance[lod] = renderData.lodDistance[lod] * QualitySettings.lodBias;
+                    }
+                    
+                }
+                cullingCS.SetVector(VGC.LODDISTANCE, lodDistance);
+
                 cullingCS.SetBuffer(kernel, VGC.LOD0VISIBLEINSTANCES, renderData.LodDatas[0].VisibleInstanceBuffer);
                 cullingCS.SetBuffer(kernel, VGC.LOD1VISIBLEINSTANCES, renderData.LodDatas[1].VisibleInstanceBuffer);
                 cullingCS.SetBuffer(kernel, VGC.LOD2VISIBLEINSTANCES, renderData.LodDatas[2].VisibleInstanceBuffer);
@@ -210,29 +226,29 @@ namespace VegetationSystem
                     }
                 }
                 
-                // 方法2a: 使用GraphicsFence
-                var fence = Graphics.CreateGraphicsFence(GraphicsFenceType.AsyncQueueSynchronisation, SynchronisationStageFlags.ComputeProcessing);
-                Graphics.WaitOnAsyncGraphicsFence(fence);
-
-                foreach (var lodData in renderData.LodDatas)
-                {
-                    foreach (var subMeshData in lodData.SubMeshDatas)
-                    {
-                        subMeshData.argsBuffer.GetData(args);
-                        Debug.Log($"subMeshData {subMeshData.rp.material.name}修改后的值: args[1] = {args[1]}");
-                    }
-                }
-
-                foreach (var lodData in renderData.LodDatas)
-                {
-                    foreach (var subMeshData in lodData.SubMeshDatas)
-                    {
-                        // 3. 同步读取数据
-                        subMeshData.argsBuffer.GetData(args);
-                        Debug.Log($"{subMeshData.rp.material.name}修改后的值: args[1] = {args[1]}");
-                    }
-                }
-                Debug.Log("------------------------------------------");
+                // // 方法2a: 使用GraphicsFence
+                // var fence = Graphics.CreateGraphicsFence(GraphicsFenceType.AsyncQueueSynchronisation, SynchronisationStageFlags.ComputeProcessing);
+                // Graphics.WaitOnAsyncGraphicsFence(fence);
+                //
+                // foreach (var lodData in renderData.LodDatas)
+                // {
+                //     foreach (var subMeshData in lodData.SubMeshDatas)
+                //     {
+                //         subMeshData.argsBuffer.GetData(args);
+                //         Debug.Log($"subMeshData {subMeshData.rp.material.name}修改后的值: args[1] = {args[1]}");
+                //     }
+                // }
+                //
+                // foreach (var lodData in renderData.LodDatas)
+                // {
+                //     foreach (var subMeshData in lodData.SubMeshDatas)
+                //     {
+                //         // 3. 同步读取数据
+                //         subMeshData.argsBuffer.GetData(args);
+                //         Debug.Log($"{subMeshData.rp.material.name}修改后的值: args[1] = {args[1]}");
+                //     }
+                // }
+                // Debug.Log("------------------------------------------");
                 
                 // uint[] args       = new uint[5];
                 // args[0] = renderData.mesh.GetIndexCount(0);

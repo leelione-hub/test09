@@ -38,8 +38,12 @@ namespace VegetationSystem
 
             if (inside)
             {
-                // visibleChunkInfos.AddNoResize(chunk);
-                visibleGuidList.AddNoResize(guid);
+                var   near       = planes[4];
+                float signedDist = Vector3.Dot(near.normal, chunk.center) + near.distance;
+                if (signedDist < 500)
+                {
+                    visibleGuidList.AddNoResize(guid);
+                }
             }
         }
     }

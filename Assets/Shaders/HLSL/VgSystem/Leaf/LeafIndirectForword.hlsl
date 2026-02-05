@@ -1,6 +1,8 @@
 ﻿#ifndef  LEAFINDIRECT_FORWARD_INCLUDE
 #define LEAFINDIRECT_FORWARD_INCLUDE
 
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
+
 struct Attributes
 {
     float3 positionOS : POSITION;
@@ -31,7 +33,7 @@ Varyings vert (Attributes IN)
                 
     half3 wind = PlantWind(wind_data);    
 
-    IN.positionOS.xyz += wind;
+    // IN.positionOS.xyz += wind;
     float3 worldPos = GetInstanceWorldPosition(IN.positionOS,IN.instanceID);
     Varyings OUT;
     OUT.positionCS = TransformWorldToHClip(worldPos);
@@ -43,7 +45,9 @@ half4 frag (Varyings input) : SV_Target
 {
     real4 finalColor = SAMPLE_TEXTURE2D(_MainTex,sampler_MainTex,input.uv);
     clip(finalColor.a - _Cutoff);
-    return finalColor;
+    half3 hsv = RgbToHsv(finalColor.rgb);
+    
+    return (hsv.z + 0.2) * _Color;
 }
 
 #endif
