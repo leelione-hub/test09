@@ -476,8 +476,6 @@ namespace VegetationSystem
             {
                 int guid = chunk.GetHashCode();
                 
-                Debug.Log($"guid:{guid} to uint :{(uint)guid}");
-
                 //每个prototypeIndex对应的startIndex和 count
                 Dictionary<int, StartIndex2Count> prototypeIndexStart2Count = new Dictionary<int, StartIndex2Count>();
                 foreach (var tree in chunk.trees)
