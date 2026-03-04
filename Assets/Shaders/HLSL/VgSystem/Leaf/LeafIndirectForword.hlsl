@@ -33,7 +33,7 @@ Varyings vert (Attributes IN)
                 
     half3 wind = PlantWind(wind_data);    
 
-    // IN.positionOS.xyz += wind;
+    IN.positionOS.xyz += wind;
     float3 worldPos = GetInstanceWorldPosition(IN.positionOS,IN.instanceID);
     Varyings OUT;
     OUT.positionCS = TransformWorldToHClip(worldPos);
@@ -44,7 +44,9 @@ Varyings vert (Attributes IN)
 half4 frag (Varyings input) : SV_Target
 {
     real4 finalColor = SAMPLE_TEXTURE2D(_MainTex,sampler_MainTex,input.uv);
-    clip(finalColor.a - _Cutoff);
+    #if defined(_ALPHATEST_ON)
+        clip(finalColor.a - _Cutoff);
+    #endif
     half3 hsv = RgbToHsv(finalColor.rgb);
     
     return (hsv.z + 0.2) * _Color;

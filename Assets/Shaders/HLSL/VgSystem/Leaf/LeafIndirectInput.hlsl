@@ -2,6 +2,8 @@
 #define LEAFINDIRECT_INPUT_INCLUDE
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SurfaceInput.hlsl"
 
 CBUFFER_START(UnityPerMaterial)
     float4 _Color;

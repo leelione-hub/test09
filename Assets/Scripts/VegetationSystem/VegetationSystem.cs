@@ -64,7 +64,7 @@ namespace VegetationSystem
             Render();
         }
 
-        public void InitData()
+        public virtual void InitData()
         {
             if (chunkDatas == null) return;
             treeDatas = JsonUtility.FromJson<TerrainTreeDatas>(chunkDatas.text);

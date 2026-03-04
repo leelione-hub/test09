@@ -1,0 +1,281 @@
+#pragma kernel CSMain
+#pragma kernel HizCull
+
+// 平台兼容性：Reversed Z支持
+#pragma multi_compile _ HIZ_REVERSED_Z
+
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+// 输入数据
+StructuredBuffer<float3> _AllCenters;
+StructuredBuffer<float3> _AllExtents;
+int _InstanceCount;
+
+// 输出数据
+RWStructuredBuffer<float> _CullingResultBuffer;
+RWStructuredBuffer<int> _VisibleIndicesBuffer;
+
+// 相机参数
+float4x4 _VP;
+float4 _FrustumPlanes[6];
+float _DepthBias;
+
+// HiZ深度纹理
+Texture2D<float> _HizDepthTexture;
+int _HizDepthTextureBaseWidth;
+int _HizDepthTextureBaseHeight;
+
+// 常量定义
+static const int3 BoundingBoxOffsets[8] = {
+    int3(1, 1, 1),
+    int3(1, 1, -1),
+    int3(1, -1, 1),
+    int3(1, -1, -1),
+    int3(-1, 1, 1),
+    int3(-1, 1, -1),
+    int3(-1, -1, 1),
+    int3(-1, -1, -1)
+};
+
+static const int2 SampleOffsets[4] = {
+    int2(0, 0),
+    int2(0, 1),
+    int2(1, 0),
+    int2(1, 1)
+};
+
+// 深度比较函数
+float CompareDepth(float d1, float d2)
+{
+#if defined(HIZ_REVERSED_Z)
+    return min(d1, d2);
+#else
+    return max(d1, d2);
+#endif
+}
+
+// 向上取整到2的幂
+int CeilToPowerOfTwo(int x)
+{
+    if (x <= 1) return 1;
+    x--;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    return x + 1;
+}
+
+// 获取期望的纹素大小
+int GetExpectedTexelSize(float2 boundsOffset, float2 boundsSize)
+{
+    float size = max(boundsSize.x, boundsSize.y);
+    if (size <= 0.0001) return 1;
+    
+    int targetTexelCount = CeilToPowerOfTwo(int(1.0 / size));
+    float targetTexelSize = 1.0 / targetTexelCount;
+    
+    int coordLeft = floor(boundsOffset.x / targetTexelSize);
+    int coordRight = floor((boundsOffset.x + boundsSize.x) / targetTexelSize);
+    int coordDown = floor(boundsOffset.y / targetTexelSize);
+    int coordUp = floor((boundsOffset.y + boundsSize.y) / targetTexelSize);
+    
+    // 如果跨越了多个纹素，降低分辨率
+    if (coordRight - coordLeft > 1 || coordUp - coordDown > 1)
+    {
+        targetTexelCount = max(1, targetTexelCount >> 1);
+    }
+    
+    return targetTexelCount;
+}
+
+// 计算合适的Mipmap级别
+int CalculateMipmapLevel(float2 boundsOffset, float2 boundsSize)
+{
+    int mipmapPower2 = (int)log2(min(_HizDepthTextureBaseWidth, _HizDepthTextureBaseHeight));
+    int expectedPower2 = (int)log2(GetExpectedTexelSize(boundsOffset, boundsSize));
+    
+    return clamp(mipmapPower2 - expectedPower2, 0, mipmapPower2);
+}
+
+// 获取Mipmap信息
+void GetMipmapInfo(int mipmapLevel, out int2 startCoord, out int2 size)
+{
+    if (mipmapLevel == 0)
+    {
+        startCoord = int2(0, 0);
+        size = int2(_HizDepthTextureBaseWidth, _HizDepthTextureBaseHeight);
+        return;
+    }
+    
+    size.x = _HizDepthTextureBaseWidth >> mipmapLevel;
+    size.y = _HizDepthTextureBaseHeight >> mipmapLevel;
+    startCoord.x = _HizDepthTextureBaseWidth;
+    startCoord.y = 0;
+}
+
+// 采样Mipmap纹理
+float SampleMipmap(float2 uv, int mipmapLevel)
+{
+    int2 startCoord, size;
+    GetMipmapInfo(mipmapLevel, startCoord, size);
+    
+    int2 coord = int2(uv * size);
+    coord = clamp(coord, int2(0, 0), size - 1);
+    
+    return _HizDepthTexture.Load(int3(startCoord + coord, 0));
+}
+
+// 视锥体剔除检查
+bool FrustumCull(float3 center, float3 extents)
+{
+    for (int i = 0; i < 6; i++)
+    {
+        float4 plane = _FrustumPlanes[i];
+        
+        // 计算包围盒到平面的最短距离
+        float r = extents.x * abs(plane.x) + 
+                  extents.y * abs(plane.y) + 
+                  extents.z * abs(plane.z);
+        
+        float s = dot(plane.xyz, center) + plane.w;
+        
+        if (s + r < 0)
+        {
+            return true; // 在视锥体外
+        }
+    }
+    
+    return false; // 在视锥体内
+}
+
+// HiZ剔除检查
+bool HiZCull(float3 center, float3 extents)
+{
+    float2 minUV = float2(999, 999);
+    float2 maxUV = float2(-999, -999);
+    float minZ = 999;
+    float maxZ = -999;
+    
+    // 计算包围盒在屏幕空间的投影
+    [unroll]
+    for (int i = 0; i < 8; i++)
+    {
+        float3 cornerWS = center + extents * BoundingBoxOffsets[i];
+        float4 cornerCS = mul(_VP, float4(cornerWS, 1.0));
+        cornerCS.xyz /= cornerCS.w;
+        
+        // 转换到UV空间 [0, 1]
+        float2 uv = cornerCS.xy * 0.5 + 0.5;
+        
+// #if UNITY_UV_STARTS_AT_TOP
+//         // DirectX坐标系，需要翻转Y
+//         uv.y = 1.0 - uv.y;
+// #endif
+        
+        // 处理深度
+#if !UNITY_UV_STARTS_AT_TOP
+        // OpenGL深度 [-1, 1] -> [0, 1]
+        float depth = cornerCS.z * 0.5 + 0.5;
+#else
+        float depth = cornerCS.z;
+#endif
+        
+        minUV = min(minUV, uv);
+        maxUV = max(maxUV, uv);
+        minZ = min(minZ, depth);
+        maxZ = max(maxZ, depth);
+    }
+    
+    // 完全在屏幕外
+    if (maxUV.x < 0 || minUV.x > 1 || maxUV.y < 0 || minUV.y > 1)
+    {
+        return true;
+    }
+    
+    // 计算合适的Mipmap级别
+    float2 clampedMinUV = clamp(minUV, 0, 1);
+    float2 clampedMaxUV = clamp(maxUV, 0, 1);
+    float2 boundsSize = clampedMaxUV - clampedMinUV;
+    
+    int mipmapLevel = CalculateMipmapLevel(clampedMinUV, boundsSize);
+    
+    // 扩展采样范围以避免边缘问题
+    int2 mipSize;
+    int2 mipStart;
+    GetMipmapInfo(mipmapLevel, mipStart, mipSize);
+    
+    float2 expand = 1.0 / float2(mipSize);
+    clampedMinUV -= expand;
+    clampedMaxUV += expand;
+    clampedMinUV = clamp(clampedMinUV, 0, 1);
+    clampedMaxUV = clamp(clampedMaxUV, 0, 1);
+    
+    // 在Mipmap层级上采样深度
+    float4 sampledDepths;
+    [unroll]
+    for (int j = 0; j < 4; j++)
+    {
+        float2 uv = lerp(clampedMinUV, clampedMaxUV, float2(SampleOffsets[j].x, SampleOffsets[j].y));
+        sampledDepths[j] = SampleMipmap(uv, mipmapLevel);
+    }
+    
+    // 获取该区域的最远深度
+    float occluderDepth = CompareDepth(
+        CompareDepth(sampledDepths.x, sampledDepths.y),
+        CompareDepth(sampledDepths.z, sampledDepths.w)
+    );
+    
+    // 应用深度偏差
+#if defined(HIZ_REVERSED_Z)
+    occluderDepth += _DepthBias;
+    // Reversed Z: 如果物体最近深度 > 遮挡者最远深度，则被遮挡
+    return minZ > occluderDepth;
+#else
+    occluderDepth -= _DepthBias;
+    // 正常Z: 如果物体最远深度 < 遮挡者最近深度，则被遮挡
+    return maxZ < occluderDepth;
+#endif
+}
+
+// 主剔除函数
+void Process(uint id)
+{
+    if (id >= (uint)_InstanceCount)
+    {
+        return;
+    }
+    
+    float3 center = _AllCenters[id];
+    float3 extents = _AllExtents[id];
+    
+    // 视锥体剔除
+    if (FrustumCull(center, extents))
+    {
+        _CullingResultBuffer[id] = 1; // 被视锥体剔除
+        return;
+    }
+    
+    // HiZ剔除
+    if (HiZCull(center, extents))
+    {
+        _CullingResultBuffer[id] = 2; // 被HiZ剔除
+        return;
+    }
+    
+    _CullingResultBuffer[id] = 0; // 可见
+}
+
+// 兼容旧版本的kernel名称
+[numthreads(64, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    Process(id.x);
+}
+
+[numthreads(64, 1, 1)]
+void HizCull(uint3 id : SV_DispatchThreadID)
+{
+    Process(id.x);
+}

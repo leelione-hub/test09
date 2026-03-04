@@ -1,0 +1,386 @@
+#pragma kernel CullInstances
+#pragma kernel CullInstancesWithHiZ
+
+// 平台兼容性：Reversed Z 支持
+#pragma multi_compile _ HIZ_REVERSED_Z
+
+#include <UnityShaderVariables.cginc>
+
+struct GrassInstanceData
+{
+    float3 position;
+    float rotationY;
+    float2 scale;
+};
+
+// 实例数据
+StructuredBuffer<GrassInstanceData> _AllInstances;
+AppendStructuredBuffer<GrassInstanceData> _Lod0VisibleInstances;
+AppendStructuredBuffer<GrassInstanceData> _Lod1VisibleInstances;
+AppendStructuredBuffer<GrassInstanceData> _Lod2VisibleInstances;
+
+RWStructuredBuffer<uint> _Lod0ArgsBuffer;
+RWStructuredBuffer<uint> _Lod1ArgsBuffer;
+RWStructuredBuffer<uint> _Lod2ArgsBuffer;
+
+// 视锥体
+float4 _FrustumPlanes[6];
+float4 _LodDistance;
+float3 _CameraPosition;
+
+// Chunk 信息
+struct ChunkInfo
+{
+    uint guid;
+    float3 center;
+    float3 extents;
+    uint startIndex;
+    uint count;
+};
+StructuredBuffer<ChunkInfo> _VisibleChunkInfos;
+uint _ChunkCount;
+
+// ==================== HiZ 剔除参数 ====================
+// HiZ 深度纹理
+Texture2D<float> _HizDepthTexture;
+// 纹理尺寸：x=width, y=height, z=mipCount
+float4 _HizTextureSize;
+// VP 矩阵
+float4x4 _HiZ_VP;
+// 深度偏差（世界空间距离）
+float _HizWorldSpaceBias;
+float3 _Extents;
+// 相机近/远平面（用于计算深度导数）
+float2 _CameraNearFar;
+// 是否启用 HiZ 剔除
+bool _EnableHiZCulling;
+// 是否使用 Reversed Z
+int _HizReversedZ;
+// ===================================================
+
+// 调试计数器（用于统计）
+#if defined(_DEBUG_HIZ)
+RWStructuredBuffer<uint> _DebugCulledCount;
+RWStructuredBuffer<uint> _DebugTestedCount;
+#endif
+
+// 深度比较函数
+float CompareDepth(float d1, float d2)
+{
+    return (_HizReversedZ != 0) ? min(d1, d2) : max(d1, d2);
+}
+
+// ==================== 世界空间距离到 NDC 深度偏差转换 ====================
+// 透视投影中，深度缓冲值（NDC Z）和深度（viewSpace Z）是非线性关系
+// 对于 Reversed Z（Unity 默认）：
+//   ndcDepth = far / (far - near) * (1 - near / viewSpaceZ)
+//   导数：d(ndcDepth)/d(viewSpaceZ) = far * near / ((far - near) * viewSpaceZ^2)
+// 
+// 对于正常 Z：
+//   ndcDepth = near / (far - near) * (far / viewSpaceZ - 1)
+//   导数：d(ndcDepth)/d(viewSpaceZ) = -far * near / ((far - near) * viewSpaceZ^2)
+// =======================================================================
+
+// 将世界空间距离偏差转换为 NDC 深度偏差 - 修复版本
+// 问题：当摄像机转动时，viewSpaceZ 变化剧烈导致深度偏差跳变
+// 解决：使用更保守的固定深度偏差，并限制最大变化率
+float WorldSpaceToNdcDepthBias(float viewSpaceZ, float worldSpaceBias)
+{
+    float near = _CameraNearFar.x;
+    float far = _CameraNearFar.y;
+    
+    // 避免除零
+    viewSpaceZ = max(viewSpaceZ, near * 0.5f); // 使用更小的最小值避免过大导数
+    
+    float denom = far - near;
+    if (denom <= 0.0001) return worldSpaceBias * 0.001f;
+    
+    // 计算深度导数的近似值
+    // |d(ndcDepth)/d(viewSpaceZ)| = far * near / ((far - near) * viewSpaceZ^2)
+    float depthDerivative = (far * near) / (denom * viewSpaceZ * viewSpaceZ);
+    
+    // 限制深度导数的范围，避免转动摄像机时偏差跳变
+    // 使用对数刻度平滑过渡
+    float clampedDerivative = saturate(depthDerivative * 1000.0f) * 0.01f;
+    
+    // 将世界空间偏差转换为 NDC 深度偏差
+    // 使用更保守的偏差值
+    return worldSpaceBias * clampedDerivative + 0.001f; // 添加基础偏差
+}
+
+// 视锥体测试
+bool FrustumTest(float3 position)
+{
+    [unroll]
+    for(int i = 0; i < 6; i++)
+    {
+        float4 plane = _FrustumPlanes[i];
+        float d = dot(plane.xyz, position) + plane.w + 2.0;
+        if(d < 0.0)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// 向上取整到 2 的幂
+int CeilToPowerOfTwo(int x)
+{
+    if (x <= 1) return 1;
+    x--;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    return x + 1;
+}
+
+// 计算期望的纹素大小
+int GetExpectedTexelSize(float2 boundsOffset, float2 boundsSize)
+{
+    float size = max(boundsSize.x, boundsSize.y);
+    if (size <= 0.0001) return 1;
+    
+    int targetTexelCount = CeilToPowerOfTwo(int(1.0 / size));
+    float targetTexelSize = 1.0 / targetTexelCount;
+    
+    int coordLeft = floor(boundsOffset.x / targetTexelSize);
+    int coordRight = floor((boundsOffset.x + boundsSize.x) / targetTexelSize);
+    int coordDown = floor(boundsOffset.y / targetTexelSize);
+    int coordUp = floor((boundsOffset.y + boundsSize.y) / targetTexelSize);
+    
+    if (coordRight - coordLeft > 1 || coordUp - coordDown > 1)
+    {
+        targetTexelCount = max(1, targetTexelCount >> 1);
+    }
+    
+    return targetTexelCount;
+}
+
+// 计算 Mipmap 级别
+int CalculateMipmapLevel(float2 boundsOffset, float2 boundsSize)
+{
+    int baseWidth = (int)_HizTextureSize.x;
+    int baseHeight = (int)_HizTextureSize.y;
+    int maxMip = (int)_HizTextureSize.z - 1;
+    
+    int mipmapPower2 = (int)log2(min(baseWidth, baseHeight));
+    int expectedPower2 = (int)log2(GetExpectedTexelSize(boundsOffset, boundsSize));
+    
+    return clamp(mipmapPower2 - expectedPower2, 0, maxMip);
+}
+
+// 采样 Mipmap 纹理
+void GetMipmapInfo(int mipmapLevel, out int2 startCoord, out int2 size)
+{
+    int baseWidth = (int)_HizTextureSize.x;
+    int baseHeight = (int)_HizTextureSize.y;
+
+    if (mipmapLevel == 0)
+    {
+        startCoord = int2(0, 0);
+        size = int2(baseWidth, baseHeight);
+        return;
+    }
+
+    size.x = baseWidth >> mipmapLevel;
+    size.y = baseHeight >> mipmapLevel;
+
+    int xOffset = baseWidth;
+    for (int i = 1; i < mipmapLevel; i++)
+    {
+        xOffset += max(1, baseWidth >> i);
+    }
+
+    startCoord = int2(xOffset, 0);
+}
+
+float SampleMipmap(float2 uv, int mipmapLevel)
+{
+    int2 startCoord, mipSize;
+    GetMipmapInfo(mipmapLevel, startCoord, mipSize);
+
+    int2 coord = int2(uv * float2(mipSize));
+    coord = clamp(coord, int2(0, 0), mipSize - 1);
+
+    return _HizDepthTexture.Load(int3(startCoord + coord, 0));
+}
+
+// HiZ 遮挡测试（带动态深度偏差）
+bool HiZOcclusionTest(float3 center, float3 extents)
+{
+    if (!_EnableHiZCulling)
+        return false;
+
+    const int3 offsets[8] = {
+        int3(1, 1, 1), int3(1, 1, -1), int3(1, -1, 1), int3(1, -1, -1),
+        int3(-1, 1, 1), int3(-1, 1, -1), int3(-1, -1, 1), int3(-1, -1, -1)
+    };
+    
+    float2 minUV = float2(1.#INF, 1.#INF);
+    float2 maxUV = float2(-1.#INF, -1.#INF);
+    float minZ = 1.#INF;
+    float maxZ = -1.#INF;
+    
+    [unroll]
+    for (int i = 0; i < 8; i++)
+    {
+        float3 cornerWorld = center + extents * offsets[i];
+        
+        // 标准的 Unity Compute Shader 矩阵乘法顺序
+        float4 cornerClip = mul(_HiZ_VP, float4(cornerWorld, 1.0));
+        
+        // 如果任何一个顶点在相机背后，说明穿过了近裁剪面，安全起见直接视为可见（不剔除）
+        if (cornerClip.w <= 0.0)
+            return false;
+        
+        cornerClip.xyz /= cornerClip.w;
+        
+        // 转换到 UV 空间 [0, 1]
+        float2 uv = cornerClip.xy * 0.5 + 0.5;
+        
+        // 投影后的 Z 已经是 NDC 深度，直接使用
+        float depth = saturate(cornerClip.z);
+
+        minUV = min(minUV, uv);
+        maxUV = max(maxUV, uv);
+        minZ = min(minZ, depth);
+        maxZ = max(maxZ, depth);
+    }
+    
+    // 检查包围盒是否完全在屏幕外
+    if (maxUV.x < 0.0 || minUV.x > 1.0 || maxUV.y < 0.0 || minUV.y > 1.0)
+        return true; // 屏幕外的直接剔除
+    
+    minUV = saturate(minUV);
+    maxUV = saturate(maxUV);
+    
+    float2 boundsSize = maxUV - minUV;
+    int mipmapLevel = CalculateMipmapLevel(minUV, boundsSize);
+
+    // 允许采样所有的 Mipmap
+    int maxMip = (int)_HizTextureSize.z - 1;
+    mipmapLevel = clamp(mipmapLevel, 0, maxMip);
+    
+    int mipWidth = max(1, (int)_HizTextureSize.x >> mipmapLevel);
+    int mipHeight = max(1, (int)_HizTextureSize.y >> mipmapLevel);
+    float2 expand = float2(1.0 / mipWidth, 1.0 / mipHeight); 
+    
+    minUV = saturate(minUV - expand);
+    maxUV = saturate(maxUV + expand);
+    
+    float depth00 = SampleMipmap(float2(minUV.x, minUV.y), mipmapLevel);
+    float depth10 = SampleMipmap(float2(maxUV.x, minUV.y), mipmapLevel);
+    float depth01 = SampleMipmap(float2(minUV.x, maxUV.y), mipmapLevel);
+    float depth11 = SampleMipmap(float2(maxUV.x, maxUV.y), mipmapLevel);
+    
+    float occluderDepth = CompareDepth(
+        CompareDepth(depth00, depth10),
+        CompareDepth(depth01, depth11)
+    );
+    
+    // 计算包围盒中心到相机的距离（用于动态深度偏差）
+    float viewDistance = length(center - _CameraPosition);
+    float ndcDepthBias = WorldSpaceToNdcDepthBias(viewDistance, _HizWorldSpaceBias);
+    
+    if (_HizReversedZ != 0)
+    {
+        // Reversed Z: 1 是近，0 是远。最远深度是最小值。
+        return (maxZ + ndcDepthBias) < occluderDepth;
+    }
+    else
+    {
+        // 正常 Z: 0 是近，1 是远。最远深度是最大值。
+        return (minZ - ndcDepthBias) > occluderDepth;
+    }
+}
+
+// ==================== 原始剔除核函数（无 HiZ）====================
+[numthreads(64,1,1)]
+void CullInstances(
+    uint3 dispatchThreadID   : SV_DispatchThreadID,
+    uint3 groupID            : SV_GroupID,
+    uint3 groupThreadID      : SV_GroupThreadID,
+    uint  groupIndex         : SV_GroupIndex)
+{
+    int chunkIndex = groupID.x;
+    if(chunkIndex >= _ChunkCount) return;
+    
+    ChunkInfo chunk = _VisibleChunkInfos[chunkIndex];
+    uint localInstanceIndex = groupID.y * 64 + groupThreadID.x;
+    
+    if(localInstanceIndex >= chunk.count) return;
+    
+    uint globalInstanceIndex = chunk.startIndex + localInstanceIndex;
+    GrassInstanceData data = _AllInstances[globalInstanceIndex];
+    float3 position = data.position;
+    
+    // 视锥体剔除
+    if(FrustumTest(position))
+    {
+        // HiZ 剔除（如果启用）
+        if (_EnableHiZCulling)
+        {
+            // 为当前草实例计算包围盒
+            // 使用草实例的位置作为中心
+            float3 center = position;
+            
+            // 基于草的 scale 计算包围盒大小
+            // scale.x = 宽度，scale.y = 高度
+            // 包围盒半宽 = scale.x / 2，半高 = scale.y
+            // 添加一个最小尺寸避免除零和过小值
+            float halfWidth = max(0.05, data.scale.x * _Extents.x);
+            float height = max(0.1, data.scale.y * _Extents.y);
+            float3 extents = float3(halfWidth, height, halfWidth);
+            
+            #if defined(_DEBUG_HIZ)
+            InterlockedAdd(_DebugTestedCount[0], 1);
+            #endif
+            
+            // 使用草实例的实际包围盒进行 HiZ 测试
+            if (HiZOcclusionTest(center, extents))
+            {
+                #if defined(_DEBUG_HIZ)
+                InterlockedAdd(_DebugCulledCount[0], 1);
+                #endif
+                return; // 被 HiZ 剔除
+            }
+        }
+        
+        // LOD 选择
+        float distance = length(_CameraPosition - position);
+        
+        if(distance < _LodDistance.x)
+        {
+            _Lod0VisibleInstances.Append(data);
+            InterlockedAdd(_Lod0ArgsBuffer[1], 1u);
+        }
+        else if(distance < _LodDistance.y)
+        {
+            _Lod1VisibleInstances.Append(data);
+            InterlockedAdd(_Lod1ArgsBuffer[1], 1u);
+        }
+        else if(distance < _LodDistance.z)
+        {
+            _Lod2VisibleInstances.Append(data);
+            InterlockedAdd(_Lod2ArgsBuffer[1], 1u);
+        }
+    }
+}
+
+// ==================== HiZ 增强剔除核函数 ====================
+[numthreads(64,1,1)]
+void CullInstancesWithHiZ(
+    uint3 dispatchThreadID   : SV_DispatchThreadID,
+    uint3 groupID            : SV_GroupID,
+    uint3 groupThreadID      : SV_GroupThreadID,
+    uint  groupIndex         : SV_GroupIndex)
+{
+    // 强制启用 HiZ
+    // _EnableHiZCulling = true;
+    
+    // 调用原始剔除函数
+    CullInstances(dispatchThreadID, groupID, groupThreadID, groupIndex);
+}

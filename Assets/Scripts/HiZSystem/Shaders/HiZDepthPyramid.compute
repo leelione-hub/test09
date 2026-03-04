@@ -1,0 +1,183 @@
+#pragma kernel DepthBlit
+#pragma kernel GenMipmap
+
+// 平台兼容性：Reversed Z支持
+#pragma multi_compile _ HIZ_REVERSED_Z
+
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+/*
+ * HiZ深度金字塔生成 Compute Shader
+ * 
+ * 内存布局（横向排列）:
+ * 假设基础尺寸为 1024x1024，共 3 个 Mip 层级
+ * 
+ * 纹理内存布局:
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │                                                             │
+ * │                    Mip 0 (1024x1024)                        │ ← 坐标 (0, 0)
+ * │                                                             │
+ * │                                                             │
+ * ├──────────────────────────┬──────────────────────────────────┤
+ * │      Mip 1 (512x512)     │        Mip 2 (256x256)           │ ← 坐标 (1024, 0) 和 (1536, 0)
+ * │                          │                                  │
+ * └──────────────────────────┴──────────────────────────────────┘
+ * 
+ * 总宽度 = 1024 + 512 + 256 = 1792
+ * 
+ * 坐标计算:
+ * - Mip 0: 起始 (0, 0), 大小 (1024, 1024)
+ * - Mip 1: 起始 (1024, 0), 大小 (512, 512)
+ * - Mip 2: 起始 (1536, 0), 大小 (256, 256)
+ * 
+ * Mip K 起始 X 坐标 = BaseWidth + Σ(BaseWidth >> i) for i in [1, K-1]
+ */
+
+// 输入: 相机深度纹理
+Texture2D<float> _CameraDepthTexture;
+
+// 输出: HiZ深度金字塔纹理（手动管理的mipmap布局）
+RWTexture2D<float> _HizDepthTexture;
+
+// 尺寸参数
+int _CameraDepthTextureWidth;      // 相机深度图宽度
+int _CameraDepthTextureHeight;     // 相机深度图高度
+int _HizDepthTextureBaseWidth;     // HiZ纹理基础宽度（Mip 0的宽度）
+int _HizDepthTextureBaseHeight;    // HiZ纹理基础高度（Mip 0的高度）
+int _HizMipmapLevel;               // 当前正在生成的mip层级
+int _HizReversedZ;                 // 是否使用Reversed Z (1=是, 0=否)
+
+/**
+ * 深度比较函数
+ * 根据是否使用Reversed Z返回较远的深度值
+ * 
+ * Reversed Z: 深度值范围 [0=远, 1=近]，取最小值作为最远深度
+ * 正常 Z: 深度值范围 [0=近, 1=远]，取最大值作为最远深度
+ */
+float CompareDepth(float d1, float d2)
+{
+#if defined(HIZ_REVERSED_Z)
+    return min(d1, d2);  // Reversed Z: 较小的值更远
+#else
+    return max(d1, d2);  // 正常Z: 较大的值更远
+#endif
+}
+
+/**
+ * 核函数：将相机深度图复制到金字塔第0层
+ * 
+ * 每个线程处理一个像素，将相机深度图采样后写入HiZ纹理的(0,0)起始区域
+ * 
+ * 调度: (ceil(BaseWidth/8), ceil(BaseHeight/8), 1) 个线程组
+ * 每个线程组: 8x8 个线程
+ */
+[numthreads(8, 8, 1)]
+void DepthBlit(uint2 id : SV_DispatchThreadID)
+{
+    [branch]
+    // 边界检查：确保不写入超出Mip 0区域的像素
+    if (id.x >= (uint)_HizDepthTextureBaseWidth || id.y >= (uint)_HizDepthTextureBaseHeight)
+    {
+        return;
+    }
+    
+    // 计算在Mip 0空间中的UV坐标 [0, 1]
+    float2 uv = (id + 0.5) / float2(_HizDepthTextureBaseWidth, _HizDepthTextureBaseHeight);
+    
+    // 将UV映射到相机深度图的像素坐标
+    int2 targetCoord = int2(uv * float2(_CameraDepthTextureWidth, _CameraDepthTextureHeight));
+    
+    // 从相机深度图采样深度值
+    float depth = _CameraDepthTexture.Load(int3(targetCoord, 0));
+    
+    // 写入深度金字塔第0层
+    // 坐标范围: (0,0) 到 (BaseWidth-1, BaseHeight-1)
+    _HizDepthTexture[id] = depth;
+}
+
+/**
+ * 核函数：生成Mipmap
+ * 
+ * 从上一层级（Mip K-1）读取4个像素，取最远深度，写入当前层级（Mip K）
+ * 
+ * 调度: (ceil(CurWidth/8), ceil(CurHeight/8), 1) 个线程组
+ * 每个线程组: 8x8 个线程
+ * 
+ * 示例：生成 Mip 2
+ * - Mip 1 存储在 (1024, 0)，大小 512x512
+ * - 当前线程 id = (10, 20)
+ * - 读取 Mip 1 的像素: (1024 + 20, 40), (1025, 40), (1024, 41), (1025, 41)
+ * - 计算最远深度，写入 Mip 2 的 (1536 + 10, 20)
+ */
+[numthreads(8, 8, 1)]
+void GenMipmap(uint2 id : SV_DispatchThreadID)
+{
+    // 计算当前层级（Mip K）的尺寸
+    // 右移 K 位相当于除以 2^K
+    int curWidth = _HizDepthTextureBaseWidth >> _HizMipmapLevel;
+    int curHeight = _HizDepthTextureBaseHeight >> _HizMipmapLevel;
+    
+    [branch]
+    // 边界检查
+    if (id.x >= (uint)curWidth || id.y >= (uint)curHeight)
+    {
+        return;
+    }
+    
+    // 计算上一层级（Mip K-1）的尺寸
+    int preWidth = _HizDepthTextureBaseWidth >> (_HizMipmapLevel - 1);
+    int preHeight = _HizDepthTextureBaseHeight >> (_HizMipmapLevel - 1);
+    
+    // 计算上一层级在纹理中的起始偏移
+    // 对于 Mip K，上一层级 Mip K-1 的起始 X 坐标为：
+    // Mip K-1 起始 = Σ(BaseWidth >> i) for i in [0, K-2]
+    //             = BaseWidth + BaseWidth>>1 + BaseWidth>>2 + ... + BaseWidth>>(K-2)
+    uint2 preCoordOffset = uint2(0, 0);
+    for(int k = 1; k < _HizMipmapLevel; k++)
+    {
+        // 累加 Mip 0 到 Mip K-2 的宽度
+        // k=1: 加 Mip 0 宽度 = BaseWidth >> 0 = BaseWidth
+        // k=2: 加 Mip 1 宽度 = BaseWidth >> 1
+        // k=3: 加 Mip 2 宽度 = BaseWidth >> 2
+        preCoordOffset.x += (uint)_HizDepthTextureBaseWidth >> (k - 1);
+    }
+    
+    // 计算在上一层级中的4个采样坐标（2x2降采样）
+    // 当前线程处理当前层级的一个像素，对应上一层级的2x2像素块
+    uint2 preCoord = id * 2 + preCoordOffset;
+    
+    // 读取上一层级的4个像素
+    float d0 = _HizDepthTexture[preCoord + uint2(0, 0)];
+    float d1 = _HizDepthTexture[preCoord + uint2(1, 0)];
+    float d2 = _HizDepthTexture[preCoord + uint2(0, 1)];
+    float d3 = _HizDepthTexture[preCoord + uint2(1, 1)];
+    
+    // 深度比较：取4个像素中最远的深度
+    // 这是HiZ的核心：存储该区域内最远的深度（最靠近相机的遮挡者）
+    float depth = CompareDepth(CompareDepth(d0, d1), CompareDepth(d2, d3));
+    
+    // 计算当前层级的写入坐标
+    uint2 writeCoord;
+    if (_HizMipmapLevel == 0)
+    {
+        // Mip 0 直接写入，不会进入这个分支（Mip 0 由 DepthBlit 处理）
+        writeCoord = id;
+    }
+    else
+    {
+        // Mip 1+ 存储在纹理右侧横向排列
+        // 计算起始 X 偏移：BaseWidth + Σ(BaseWidth >> i) for i in [1, K-1]
+        int xOffset = _HizDepthTextureBaseWidth;  // Mip 0 的宽度
+        
+        // 累加 Mip 1 到 Mip K-1 的宽度
+        for (int i = 1; i < _HizMipmapLevel; i++)
+        {
+            xOffset += _HizDepthTextureBaseWidth >> i;
+        }
+        
+        writeCoord = uint2(xOffset + id.x, id.y);
+    }
+    
+    // 写入当前层级的深度值
+    _HizDepthTexture[writeCoord] = depth;
+}
