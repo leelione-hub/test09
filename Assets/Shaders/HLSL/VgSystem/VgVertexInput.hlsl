@@ -46,4 +46,29 @@ float3 GetInstanceWorldPosition(float3 positionOS,uint instanceID)
             
 }
 
+float3 GetInstanceWorldNormal(float3 normalOS, uint instanceID)
+{
+    #ifdef GRAPHICDRAW_ON
+    GrassInstanceData data = _InstanceBuffer[instanceID];
+
+    float sx = max(data.scale.x, 1e-5);
+    float sy = max(data.scale.y, 1e-5);
+
+    // inverse-transpose for M = R * S, S = diag(sx, sy, sx)
+    float3 n = float3(normalOS.x / sx, normalOS.y / sy, normalOS.z / sx);
+
+    float c = cos(data.rotationY);
+    float s = sin(data.rotationY);
+
+    float3 rotated;
+    rotated.x = n.x * c - n.z * s;
+    rotated.z = n.x * s + n.z * c;
+    rotated.y = n.y;
+
+    return normalize(rotated);
+    #else
+    return TransformObjectToWorldNormal(normalOS);
+    #endif
+}
+
 #endif

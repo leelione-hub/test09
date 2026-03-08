@@ -127,6 +127,7 @@ namespace VegetationSystem
         /// </summary>
         public void ChunkCullingOnCPU()
         {
+            if (vgCulling == null || cullingCamera == null) return;
             vgCulling.SetCullingCamera(cullingCamera);
             vgCulling.ScheduleCulling(ref vgRender.visibleChunkGuidHashset);
             vgRender.RefreshVisibleChunkBuffer();

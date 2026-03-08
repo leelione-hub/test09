@@ -54,6 +54,18 @@
             #pragma vertex vert
             #pragma fragment frag
 
+            //--------------------------------------
+            // GPU Instancing
+            #pragma multi_compile_instancing
+
+            // Lighting & shadows
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
                 float _WindStrength;
@@ -76,6 +88,8 @@
             {
                 float4 positionCS : SV_POSITION;
                 float2 uv         : TEXCOORD0;
+                float3 positionWS : TEXCOORD1;
+                float3 normalWS   : TEXCOORD2;
             };
 
             Varyings vert (Attributes IN)
@@ -84,14 +98,38 @@
                 Varyings OUT;
                 OUT.positionCS = TransformWorldToHClip(worldPos);
                 OUT.uv = TRANSFORM_TEX(IN.uv,_MainTex);
+                OUT.positionWS = worldPos;
+                OUT.normalWS = GetInstanceWorldNormal(IN.normal, IN.instanceID);
                 return OUT;
             }
 
             half4 frag (Varyings input) : SV_Target
             {
-                real4 finalColor = SAMPLE_TEXTURE2D(_MainTex,sampler_MainTex,input.uv);
-                clip(finalColor.a - 0.5);
-                return finalColor;
+                real4 baseColor = SAMPLE_TEXTURE2D(_MainTex,sampler_MainTex,input.uv);
+                clip(baseColor.a - 0.5);
+
+                half3 albedo = baseColor.rgb * _Color.rgb;
+                half3 normalWS = normalize(input.normalWS);
+
+                float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
+                Light mainLight = GetMainLight(shadowCoord);
+                half NdotL = saturate(dot(normalWS, mainLight.direction));
+
+                half3 lighting = SampleSH(normalWS);
+                lighting += mainLight.color * (mainLight.distanceAttenuation * mainLight.shadowAttenuation * NdotL);
+
+                #if defined(_ADDITIONAL_LIGHTS)
+                uint additionalCount = (uint)GetAdditionalLightsCount();
+                for (uint i = 0u; i < additionalCount; i++)
+                {
+                    Light light = GetAdditionalLight(i, input.positionWS, half4(1, 1, 1, 1));
+                    half atten = light.distanceAttenuation * light.shadowAttenuation;
+                    half addNdotL = saturate(dot(normalWS, light.direction));
+                    lighting += light.color * (atten * addNdotL);
+                }
+                #endif
+
+                return half4(albedo * lighting, baseColor.a * _Color.a);
             }
             ENDHLSL
         }

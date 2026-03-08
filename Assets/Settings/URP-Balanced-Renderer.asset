@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f62c9c65cf3354c93be831c8bc075510, type: 3}
   m_Name: SSAO
   m_EditorClassIdentifier: 
-  m_Active: 1
+  m_Active: 0
   m_Settings:
     AOMethod: 1
     Downsample: 1
@@ -70,7 +70,8 @@ MonoBehaviour:
   - {fileID: -1878332245247344467}
   - {fileID: -1779532339051077413}
   - {fileID: 4976397736057501078}
-  m_RendererFeatureMap: adc0de57c6d2eee5db608a18c4d44de796f5c3f65fb70f45
+  - {fileID: 7985332756440425641}
+  m_RendererFeatureMap: adc0de57c6d2eee5db608a18c4d44de796f5c3f65fb70f45a924ec78d599d16e
   m_UseNativeRenderPass: 0
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   xrSystemData: {fileID: 11400000, guid: 60e1133243b97e347b653163a8c01b64, type: 2}
@@ -113,6 +114,24 @@ MonoBehaviour:
   m_CopyDepthMode: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 1
+--- !u!114 &4629493797947362860
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f40d28ac5a1114760bee2e70248bf8d3, type: 3}
+  m_Name: VegetationRenderFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  settings:
+    renderPassEvent: 250
+    mainCameraOnly: 1
+    supportSceneView: 0
+    executeCullingBeforeRender: 1
 --- !u!114 &4976397736057501078
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -130,3 +149,21 @@ MonoBehaviour:
     renderPassEvent: 200
     mainCameraOnly: 1
     supportSceneView: 0
+--- !u!114 &7985332756440425641
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f40d28ac5a1114760bee2e70248bf8d3, type: 3}
+  m_Name: VegetationRenderFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  settings:
+    renderPassEvent: 300
+    mainCameraOnly: 1
+    supportSceneView: 1
+    executeCullingBeforeRender: 1

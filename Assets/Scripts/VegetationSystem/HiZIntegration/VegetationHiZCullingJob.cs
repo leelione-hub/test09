@@ -10,7 +10,7 @@ namespace VegetationSystem.HiZIntegration
     /// Vegetation Chunk的HiZ剔除Job
     /// 在CPU端执行HiZ遮挡剔除
     /// </summary>
-    [BurstCompile]
+    /// [BurstCompile]
     public struct VegetationHiZCullingJob : IJobParallelFor
     {
         [ReadOnly] public NativeArray<ChunkInfoForJob> Chunks;

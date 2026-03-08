@@ -59,6 +59,9 @@ namespace VegetationSystem.HiZIntegration
         private static readonly int HizReversedZId = Shader.PropertyToID("_HizReversedZ");
 
         private HizDepthPyramid _depthPyramid;
+        private int _lastCullingFrame = -1;
+        private int _lastShadowSubmitFrame = -1;
+        private readonly Dictionary<int, int> _forwardPassIndexCache = new Dictionary<int, int>();
 
         public GameObject posGO;
 
@@ -168,25 +171,11 @@ namespace VegetationSystem.HiZIntegration
         }
 
         /// <summary>
-        /// 重写 Update，插入 HiZ 剔除
+        /// 渲染迁移到 RenderPass，Update 不再执行剔除与绘制。
         /// </summary>
         protected void Update()
         {
-            // 执行 Chunk 视锥体剔除
-            ChunkCullingOnCPU();
-            
-            // 执行 HiZ 剔除（GPU 模式）
-            if (_enableHiZCulling && _hizCullingMode == HiZCullingMode.GPU)
-            {
-                SetupHiZCullingParameters();
-            }
-            // CPU 模式由 VegetationHizIntegrator 处理
-            
-            // 执行 Compute Shader 剔除
-            CSDispatch();
-            
-            // 渲染
-            Render();
+            // no-op
         }
 
         /// <summary>
@@ -284,14 +273,18 @@ namespace VegetationSystem.HiZIntegration
         public new void CSDispatch()
         {
             if (cullingCS == null) return;
-            
-            // 确定使用哪个 Kernel
-            int kernel = (_enableHiZCulling && _useHiZShader && _hizKernel >= 0) 
-                ? _hizKernel 
-                : _originalKernel;
+
+            bool canUseHiZKernel = _enableHiZCulling &&
+                                   _useHiZShader &&
+                                   _hizKernel >= 0 &&
+                                   _depthPyramid != null &&
+                                   _depthPyramid.DepthPyramidTexture != null;
+
+            // 只有在HiZ资源有效时才使用HiZ kernel，否则回退到普通剔除kernel
+            int kernel = canUseHiZKernel ? _hizKernel : _originalKernel;
 
             // 设置 HiZ 参数（如果启用）
-            if (_enableHiZCulling && _useHiZShader && _depthPyramid != null)
+            if (canUseHiZKernel)
             {
                 cullingCS.SetBool(EnableHiZCullingId, true);
                 
@@ -424,6 +417,170 @@ namespace VegetationSystem.HiZIntegration
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// 在 RenderPass 中执行一次完整剔除（CPU Chunk + HiZ 参数 + CS）
+        /// </summary>
+        public void ExecuteCullingForRenderPass(Camera renderCamera)
+        {
+            // 同一帧只剔除一次，GameView/SceneView 复用同一份剔除结果
+            if (_lastCullingFrame == Time.frameCount)
+            {
+                return;
+            }
+
+            // 始终优先使用主相机进行剔除，保证 GameView/SceneView 一致
+            Camera cullCamera = Camera.main;
+            if (cullCamera == null)
+            {
+                cullCamera = cullingCamera != null ? cullingCamera : renderCamera;
+            }
+            if (cullCamera == null)
+            {
+                return;
+            }
+
+            cullingCamera = cullCamera;
+            ChunkCullingOnCPU();
+
+            if (_enableHiZCulling && _hizCullingMode == HiZCullingMode.GPU)
+            {
+                SetupHiZCullingParameters();
+            }
+
+            CSDispatch();
+            _lastCullingFrame = Time.frameCount;
+        }
+
+        /// <summary>
+        /// 在 RenderPass 中通过 CommandBuffer.DrawMeshInstancedIndirect 执行绘制
+        /// </summary>
+        public void RenderWithCommandBuffer(CommandBuffer cmd)
+        {
+            if (cmd == null)
+            {
+                return;
+            }
+
+            var vgRender = GetVgRender();
+            if (vgRender == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < vgRender.vegetationRenderDataList.Count; i++)
+            {
+                var renderData = vgRender.vegetationRenderDataList[i];
+                for (int lodIndex = 0; lodIndex < renderData.LodDatas.Length; lodIndex++)
+                {
+                    var lodData = renderData.LodDatas[lodIndex];
+                    if (lodData.mesh == null)
+                    {
+                        continue;
+                    }
+
+                    for (int subMeshIndex = 0; subMeshIndex < lodData.SubMeshDatas.Length; subMeshIndex++)
+                    {
+                        var subMeshData = lodData.SubMeshDatas[subMeshIndex];
+                        var material = subMeshData.rp.material;
+                        if (material == null || subMeshData.argsBuffer == null)
+                        {
+                            continue;
+                        }
+
+                        cmd.DrawMeshInstancedIndirect(
+                            lodData.mesh,
+                            subMeshData.subMesh,
+                            material,
+                            ResolveForwardPassIndex(material),
+                            subMeshData.argsBuffer,
+                            0,
+                            null);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 提交阴影投射绘制（每帧一次），供阴影阶段使用
+        /// </summary>
+        public void SubmitShadowCasters()
+        {
+            if (_lastShadowSubmitFrame == Time.frameCount)
+            {
+                return;
+            }
+            _lastShadowSubmitFrame = Time.frameCount;
+
+            var vgRender = GetVgRender();
+            if (vgRender == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < vgRender.vegetationRenderDataList.Count; i++)
+            {
+                var renderData = vgRender.vegetationRenderDataList[i];
+                for (int lodIndex = 0; lodIndex < renderData.LodDatas.Length; lodIndex++)
+                {
+                    var lodData = renderData.LodDatas[lodIndex];
+                    if (lodData.mesh == null)
+                    {
+                        continue;
+                    }
+
+                    for (int subMeshIndex = 0; subMeshIndex < lodData.SubMeshDatas.Length; subMeshIndex++)
+                    {
+                        var subMeshData = lodData.SubMeshDatas[subMeshIndex];
+                        if (subMeshData.argsBuffer == null || subMeshData.rp.material == null)
+                        {
+                            continue;
+                        }
+
+                        RenderParams shadowRp = subMeshData.rp;
+                        shadowRp.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+                        shadowRp.receiveShadows = false;
+
+                        if (shadowRp.worldBounds.extents == Vector3.zero)
+                        {
+                            shadowRp.worldBounds = new Bounds(Vector3.zero, Vector3.one * 5000f);
+                        }
+
+                        Graphics.RenderMeshIndirect(shadowRp, lodData.mesh, subMeshData.argsBuffer);
+                    }
+                }
+            }
+        }
+
+        private int ResolveForwardPassIndex(Material material)
+        {
+            int materialId = material.GetInstanceID();
+            if (_forwardPassIndexCache.TryGetValue(materialId, out int cachedPassIndex))
+            {
+                return cachedPassIndex;
+            }
+
+            int passIndex = material.FindPass("ForwardLit");
+            if (passIndex < 0)
+            {
+                passIndex = material.FindPass("UniversalForward");
+            }
+            if (passIndex < 0)
+            {
+                passIndex = material.FindPass("UniversalForwardOnly");
+            }
+            if (passIndex < 0)
+            {
+                passIndex = material.FindPass("SRPDefaultUnlit");
+            }
+            if (passIndex < 0)
+            {
+                passIndex = 0;
+            }
+
+            _forwardPassIndexCache[materialId] = passIndex;
+            return passIndex;
         }
 
         /// <summary>
