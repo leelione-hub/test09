@@ -11,7 +11,8 @@ Material:
   m_Shader: {fileID: 4800000, guid: 2e90ce6dcc904dc9a7a552e3e6931a03, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - _ALPHATEST_ON
   m_InvalidKeywords:
   - _ZWRITE_ON
   m_LightmapFlags: 4
@@ -120,7 +121,7 @@ Material:
     - _AlphaClip: 1
     - _AlphaClipping: 0
     - _AlphaCutoff: 0.5
-    - _AlphaTest: 0
+    - _AlphaTest: 1
     - _AlphaToMask: 1
     - _BackBrightness: -0.6
     - _BackFaceShadowInt: 1
@@ -140,7 +141,7 @@ Material:
     - _Clipping: 1
     - _ColorMask: 15
     - _Cull: 0
-    - _Cutoff: 0.565
+    - _Cutoff: 0.687
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
     - _Distance: 1
@@ -235,7 +236,7 @@ Material:
     - _BasecolorTint: {r: 1, g: 1, b: 1, a: 0}
     - _BlendRange: {r: 0, g: 0, b: 0, a: 0}
     - _CirceWindDirection: {r: 0.1, g: 0.1, b: 0, a: 0}
-    - _Color: {r: 0.11996802, g: 0.7798742, b: 0.0024522701, a: 1}
+    - _Color: {r: 0.4427435, g: 0.8584906, b: 0.36850303, a: 1}
     - _CookieColor: {r: 0.21779987, g: 0.23556775, b: 0.26415086, a: 0}
     - _Direction: {r: 1, g: 1, b: 1, a: 0}
     - _EdgeBrightColor: {r: 1, g: 0.98480487, b: 0, a: 0}
