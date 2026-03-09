@@ -21,9 +21,6 @@ namespace VegetationSystem.HiZIntegration
 
             [Tooltip("是否支持场景视图")]
             public bool supportSceneView = false;
-
-            [Tooltip("是否在RenderPass中执行HiZ剔除与CS调度（建议开启）")]
-            public bool executeCullingBeforeRender = true;
         }
 
         public VegetationRenderFeatureSettings settings = new VegetationRenderFeatureSettings();
@@ -79,7 +76,6 @@ namespace VegetationSystem.HiZIntegration
                 return;
             }
 
-            _renderPass.Setup(settings.executeCullingBeforeRender);
             renderer.EnqueuePass(_renderPass);
         }
 
@@ -140,12 +136,6 @@ namespace VegetationSystem.HiZIntegration
     {
         private readonly ProfilingSampler _profilingSampler =
             new ProfilingSampler("Vegetation HiZ Culling and Render");
-
-        public void Setup(bool executeCullingBeforeRender)
-        {
-            _ = executeCullingBeforeRender;
-            // 剔除与渲染已整体迁移到 RenderPass，这里始终执行剔除。
-        }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {

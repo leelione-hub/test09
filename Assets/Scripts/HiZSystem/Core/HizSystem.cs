@@ -1,13 +1,11 @@
 using System;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
 
 namespace HiZTechnique
 {
     /// <summary>
     /// HiZ系统主管理器
-    /// 统一入口，负责协调深度金字塔生成和剔除管理
+    /// 统一入口，负责深度金字塔生命周期与配置
     /// </summary>
     [DefaultExecutionOrder(-100)]
     public class HizSystem : MonoBehaviour
@@ -44,27 +42,16 @@ namespace HiZTechnique
         [SerializeField]
         private ComputeShader _depthPyramidComputeShader;
         
-        [Tooltip("剔除Compute Shader")]
-        [SerializeField]
-        private ComputeShader _cullingComputeShader;
-        
         [Header("Fallback设置")]
         [Tooltip("Fallback深度金字塔Shader（当Compute Shader不支持时使用）")]
         [SerializeField]
         private Shader _depthBlitFallbackShader;
-        
-        [Header("相机设置")]
-        [Tooltip("使用指定相机（为空则使用主相机）")]
-        [SerializeField]
-        private Camera _targetCamera;
         
         #endregion
         
         #region 组件
         
         private HizDepthPyramid _depthPyramid;
-        private HizCullingManager _cullingManager;
-        private HizRenderFeature _renderFeature;
         
         #endregion
         
@@ -101,21 +88,6 @@ namespace HiZTechnique
         /// 深度金字塔纹理
         /// </summary>
         public RenderTexture DepthPyramidTexture => _depthPyramid?.DepthPyramidTexture;
-        
-        /// <summary>
-        /// 剔除管理器
-        /// </summary>
-        public HizCullingManager CullingManager => _cullingManager;
-        
-        /// <summary>
-        /// 当前统计
-        /// </summary>
-        public HizCullingStats CurrentStats => _cullingManager?.CurrentStats;
-        
-        /// <summary>
-        /// 目标相机
-        /// </summary>
-        public Camera TargetCamera => _targetCamera ?? Camera.main;
         
         #endregion
         
@@ -203,14 +175,6 @@ namespace HiZTechnique
                 return;
             }
             
-            // 初始化剔除管理器
-            _cullingManager = new HizCullingManager();
-            if (!_cullingManager.Initialize(_settings, _cullingComputeShader))
-            {
-                Debug.LogWarning("[HiZ System] 剔除管理器初始化失败，HiZ剔除将不可用");
-                // 继续运行，只是没有剔除功能
-            }
-            
             // 监听设置变更
             _settings.OnSettingsChanged += OnSettingsChanged;
             
@@ -232,10 +196,7 @@ namespace HiZTechnique
             
             _depthPyramid?.Dispose();
             _depthPyramid = null;
-            
-            _cullingManager?.Dispose();
-            _cullingManager = null;
-            
+
             _settings.OnSettingsChanged -= OnSettingsChanged;
         }
         
@@ -260,10 +221,6 @@ namespace HiZTechnique
                 return;
             }
             
-            // 注册渲染事件
-            RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
-            RenderPipelineManager.endCameraRendering += OnEndCameraRendering;
-            
             SetState(HizSystemState.Active);
             OnSystemEnabled?.Invoke();
             
@@ -278,18 +235,6 @@ namespace HiZTechnique
             if (_state != HizSystemState.Active)
             {
                 return;
-            }
-            
-            // 注销渲染事件
-            RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
-            RenderPipelineManager.endCameraRendering -= OnEndCameraRendering;
-            
-            // 恢复所有被剔除的对象
-            _cullingManager?.Dispose();
-            if (_settings.enableHiz && _cullingComputeShader != null)
-            {
-                _cullingManager = new HizCullingManager();
-                _cullingManager.Initialize(_settings, _cullingComputeShader);
             }
             
             SetState(HizSystemState.Ready);
@@ -332,54 +277,8 @@ namespace HiZTechnique
         
         #endregion
         
-        #region 渲染回调
-        
-        private void OnBeginCameraRendering(ScriptableRenderContext context, Camera camera)
-        {
-            if (camera != TargetCamera)
-                return;
-            
-            // 深度金字塔由RenderFeature处理
-        }
-        
-        private void OnEndCameraRendering(ScriptableRenderContext context, Camera camera)
-        {
-            if (camera != TargetCamera)
-                return;
-            
-            // 执行剔除
-            if (_cullingManager != null && _cullingManager.IsInitialized && 
-                _depthPyramid != null && _depthPyramid.DepthPyramidTexture != null)
-            {
-                _cullingManager.ExecuteCulling(
-                    camera, 
-                    _depthPyramid.DepthPyramidTexture,
-                    _depthPyramid.BaseSize.x,
-                    _depthPyramid.BaseSize.y
-                );
-            }
-        }
-        
-        #endregion
-        
         #region 公共API
-        
-        /// <summary>
-        /// 注册剔除对象
-        /// </summary>
-        public void RegisterCullingObject(IHizCullingObject obj)
-        {
-            _cullingManager?.RegisterObject(obj);
-        }
-        
-        /// <summary>
-        /// 注销剔除对象
-        /// </summary>
-        public void UnregisterCullingObject(IHizCullingObject obj)
-        {
-            _cullingManager?.UnregisterObject(obj);
-        }
-        
+
         /// <summary>
         /// 更新设置
         /// </summary>
@@ -431,39 +330,6 @@ namespace HiZTechnique
             {
                 Debug.Log($"[HiZ System] 状态变更为: {newState}");
             }
-        }
-        
-        #endregion
-        
-        #region 调试
-        
-        private void OnGUI()
-        {
-            if (!_settings.enableDebug)
-                return;
-            
-            GUILayout.BeginArea(new Rect(10, 10, 300, 200));
-            GUILayout.BeginVertical("box");
-            
-            GUILayout.Label($"HiZ System: {_state}");
-            GUILayout.Label($"Objects: {_cullingManager?.ObjectCount ?? 0}");
-            
-            if (_cullingManager != null)
-            {
-                var stats = _cullingManager.CurrentStats;
-                GUILayout.Label($"Visible: {stats.visibleInstances}/{stats.totalInstances}");
-                GUILayout.Label($"Culled (Frustum): {stats.culledByFrustum}");
-                GUILayout.Label($"Culled (HiZ): {stats.culledByHiz}");
-                GUILayout.Label($"Culling Ratio: {stats.CullingRatio:P1}");
-            }
-            
-            if (GUILayout.Button(IsActive ? "Disable HiZ" : "Enable HiZ"))
-            {
-                ToggleSystem();
-            }
-            
-            GUILayout.EndVertical();
-            GUILayout.EndArea();
         }
         
         #endregion

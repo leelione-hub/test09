@@ -62,8 +62,10 @@ Shader "URP/VgSystem/GrassIndirect"
             // Lighting & shadows
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile _ _FORWARD_PLUS
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             
@@ -134,14 +136,48 @@ Shader "URP/VgSystem/GrassIndirect"
                 lighting += mainLight.color * (mainLight.distanceAttenuation * mainLight.shadowAttenuation * NdotL);
 
                 #if defined(_ADDITIONAL_LIGHTS)
-                uint additionalCount = (uint)GetAdditionalLightsCount();
-                for (uint i = 0u; i < additionalCount; i++)
+                InputData inputData = (InputData)0;
+                inputData.positionWS = input.positionWS;
+                inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
+
+                half4 shadowMask = half4(1, 1, 1, 1);
+                uint meshRenderingLayers = GetMeshRenderingLayer();
+                uint pixelLightCount = GetAdditionalLightsCount();
+
+                #if USE_FORWARD_PLUS
+                UNITY_LOOP for (uint lightIndex = 0u; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
                 {
-                    Light light = GetAdditionalLight(i, input.positionWS, half4(1, 1, 1, 1));
+                    FORWARD_PLUS_SUBTRACTIVE_LIGHT_CHECK
+
+                    Light light = GetAdditionalLight(lightIndex, input.positionWS, shadowMask);
                     half atten = light.distanceAttenuation * light.shadowAttenuation;
                     half addNdotL = saturate(dot(normalWS, light.direction));
+
+                    #ifdef _LIGHT_LAYERS
+                    if (!IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
+                    {
+                        continue;
+                    }
+                    #endif
+
                     lighting += light.color * (atten * addNdotL);
                 }
+                #endif
+
+                LIGHT_LOOP_BEGIN(pixelLightCount)
+                    Light light = GetAdditionalLight(lightIndex, input.positionWS, shadowMask);
+                    half atten = light.distanceAttenuation * light.shadowAttenuation;
+                    half addNdotL = saturate(dot(normalWS, light.direction));
+
+                    #ifdef _LIGHT_LAYERS
+                    if (!IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
+                    {
+                        continue;
+                    }
+                    #endif
+
+                    lighting += light.color * (atten * addNdotL);
+                LIGHT_LOOP_END
                 #endif
 
                 return half4(albedo * lighting, baseColor.a * _Color.a);

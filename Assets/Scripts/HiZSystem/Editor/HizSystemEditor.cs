@@ -12,9 +12,7 @@ namespace HiZTechnique.Editor
     {
         private SerializedProperty _settings;
         private SerializedProperty _depthPyramidComputeShader;
-        private SerializedProperty _cullingComputeShader;
         private SerializedProperty _depthBlitFallbackShader;
-        private SerializedProperty _targetCamera;
         
         private bool _showSettings = true;
         private bool _showShaders = true;
@@ -25,9 +23,7 @@ namespace HiZTechnique.Editor
         {
             _settings = serializedObject.FindProperty("_settings");
             _depthPyramidComputeShader = serializedObject.FindProperty("_depthPyramidComputeShader");
-            _cullingComputeShader = serializedObject.FindProperty("_cullingComputeShader");
             _depthBlitFallbackShader = serializedObject.FindProperty("_depthBlitFallbackShader");
-            _targetCamera = serializedObject.FindProperty("_targetCamera");
         }
         
         public override void OnInspectorGUI()
@@ -38,7 +34,7 @@ namespace HiZTechnique.Editor
             
             // 标题
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("HiZ Occlusion Culling System", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("HiZ Depth Pyramid System", EditorStyles.boldLabel);
             EditorGUILayout.Space();
             
             // 状态显示
@@ -105,18 +101,6 @@ namespace HiZTechnique.Editor
                 GUI.color = stateColor;
                 EditorGUILayout.LabelField("当前状态", state.ToString(), EditorStyles.boldLabel);
                 GUI.color = Color.white;
-                
-                // 显示统计
-                if (hizSystem.CullingManager != null)
-                {
-                    var stats = hizSystem.CurrentStats;
-                    if (stats != null)
-                    {
-                        EditorGUILayout.LabelField($"对象数量: {hizSystem.CullingManager.ObjectCount}");
-                        EditorGUILayout.LabelField($"可见/总数: {stats.visibleInstances}/{stats.totalInstances}");
-                        EditorGUILayout.LabelField($"剔除率: {stats.CullingRatio:P1}");
-                    }
-                }
             }
             else
             {
@@ -181,14 +165,6 @@ namespace HiZTechnique.Editor
                     new GUIContent("深度格式", "RFloat精度高，RHalf性能好"));
                 
                 EditorGUILayout.Space();
-                EditorGUILayout.LabelField("剔除设置", EditorStyles.boldLabel);
-                
-                EditorGUILayout.PropertyField(_settings.FindPropertyRelative("depthBias"), 
-                    new GUIContent("深度偏差", "防止Z-fighting导致的错误剔除"));
-                EditorGUILayout.PropertyField(_settings.FindPropertyRelative("cullingFrameInterval"), 
-                    new GUIContent("剔除间隔", "每N帧执行一次剔除"));
-                
-                EditorGUILayout.Space();
                 EditorGUILayout.LabelField("平台适配", EditorStyles.boldLabel);
                 
                 EditorGUILayout.PropertyField(_settings.FindPropertyRelative("autoAdjustForPlatform"), 
@@ -213,14 +189,8 @@ namespace HiZTechnique.Editor
             EditorGUILayout.PropertyField(_depthPyramidComputeShader, 
                 new GUIContent("深度金字塔CS", "用于生成深度金字塔的Compute Shader"));
             
-            EditorGUILayout.PropertyField(_cullingComputeShader, 
-                new GUIContent("剔除CS", "用于执行剔除的Compute Shader"));
-            
             EditorGUILayout.PropertyField(_depthBlitFallbackShader, 
                 new GUIContent("Fallback Shader", "当Compute Shader不支持时使用"));
-            
-            EditorGUILayout.PropertyField(_targetCamera, 
-                new GUIContent("目标相机", "为空则使用主相机"));
             
             EditorGUILayout.EndVertical();
             
@@ -289,10 +259,6 @@ namespace HiZTechnique.Editor
                     if (path.Contains("DepthPyramid") || path.Contains("Mipmap"))
                     {
                         _depthPyramidComputeShader.objectReferenceValue = cs;
-                    }
-                    else if (path.Contains("Culling"))
-                    {
-                        _cullingComputeShader.objectReferenceValue = cs;
                     }
                 }
             }

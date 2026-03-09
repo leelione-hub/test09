@@ -164,7 +164,6 @@ namespace HiZTechnique
             settings.maxMipLevel = Mathf.Max(settings.maxMipLevel, 8);
             settings.baseResolution = Mathf.Max(settings.baseResolution, 2048);
             settings.depthFormat = HizDepthFormat.RFloat;
-            settings.cullingFrameInterval = 1;
             Debug.Log("[HiZ] 已应用桌面端优化设置");
         }
         
@@ -176,7 +175,6 @@ namespace HiZTechnique
             settings.maxMipLevel = Mathf.Min(settings.maxMipLevel, 8);
             settings.baseResolution = Mathf.Min(settings.baseResolution, 1024);
             settings.depthFormat = HizDepthFormat.RHalf;
-            settings.cullingFrameInterval = Mathf.Max(settings.cullingFrameInterval, 1);
             Debug.Log("[HiZ] 已应用移动端优化设置");
         }
         
@@ -192,7 +190,6 @@ namespace HiZTechnique
             settings.maxMipLevel = 4;
             settings.baseResolution = 512;
             settings.depthFormat = HizDepthFormat.RHalf;
-            settings.cullingFrameInterval = 2;
             settings.forceDisableComputeShader = false; // 仍然尝试使用Compute Shader
             
             Debug.Log("[HiZ] 检测到低端移动设备，已应用降级设置");

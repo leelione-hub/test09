@@ -21,6 +21,58 @@ struct Varyings
     float3 normalWS   : TEXCOORD2;
 };
 
+inline half3 AccumulateVegetationAdditionalLights(float3 positionWS, float3 normalWS, float4 positionCS)
+{
+    half3 lighting = 0;
+
+    #if defined(_ADDITIONAL_LIGHTS)
+    InputData inputData = (InputData)0;
+    inputData.positionWS = positionWS;
+    inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(positionCS);
+
+    half4 shadowMask = half4(1, 1, 1, 1);
+    uint meshRenderingLayers = GetMeshRenderingLayer();
+    uint pixelLightCount = GetAdditionalLightsCount();
+
+    #if USE_FORWARD_PLUS
+    UNITY_LOOP for (uint lightIndex = 0u; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
+    {
+        FORWARD_PLUS_SUBTRACTIVE_LIGHT_CHECK
+
+        Light light = GetAdditionalLight(lightIndex, positionWS, shadowMask);
+        half atten = light.distanceAttenuation * light.shadowAttenuation;
+        half addNdotL = saturate(dot(normalWS, light.direction));
+
+        #ifdef _LIGHT_LAYERS
+        if (!IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
+        {
+            continue;
+        }
+        #endif
+
+        lighting += light.color * (atten * addNdotL);
+    }
+    #endif
+
+    LIGHT_LOOP_BEGIN(pixelLightCount)
+        Light light = GetAdditionalLight(lightIndex, positionWS, shadowMask);
+        half atten = light.distanceAttenuation * light.shadowAttenuation;
+        half addNdotL = saturate(dot(normalWS, light.direction));
+
+        #ifdef _LIGHT_LAYERS
+        if (!IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
+        {
+            continue;
+        }
+        #endif
+
+        lighting += light.color * (atten * addNdotL);
+    LIGHT_LOOP_END
+    #endif
+
+    return lighting;
+}
+
 Varyings vert(Attributes IN)
 {
     WindStruct windData;
@@ -64,16 +116,7 @@ half4 frag(Varyings input) : SV_Target
     half3 lighting = SampleSH(normalWS);
     lighting += mainLight.color * (mainLight.distanceAttenuation * mainLight.shadowAttenuation * NdotL);
 
-    #if defined(_ADDITIONAL_LIGHTS)
-    uint additionalCount = (uint)GetAdditionalLightsCount();
-    for (uint i = 0u; i < additionalCount; i++)
-    {
-        Light light = GetAdditionalLight(i, input.positionWS, half4(1, 1, 1, 1));
-        half atten = light.distanceAttenuation * light.shadowAttenuation;
-        half addNdotL = saturate(dot(normalWS, light.direction));
-        lighting += light.color * (atten * addNdotL);
-    }
-    #endif
+    lighting += AccumulateVegetationAdditionalLights(input.positionWS, normalWS, input.positionCS);
 
     return half4(albedo * lighting, baseColor.a * _Color.a);
 }

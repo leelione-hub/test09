@@ -41,9 +41,6 @@ namespace VegetationSystem.HiZIntegration
             CPU,    // 在 CPU Job 中进行（开发中）
         }
         
-        // HiZ 集成组件
-        private VegetationHizIntegrator _hizIntegrator;
-        
         // 运行时状态
         private bool _useHiZShader;
         private int _originalKernel = -1;
@@ -62,20 +59,6 @@ namespace VegetationSystem.HiZIntegration
         private int _lastCullingFrame = -1;
         private int _lastShadowSubmitFrame = -1;
         private readonly Dictionary<int, int> _forwardPassIndexCache = new Dictionary<int, int>();
-
-        public GameObject posGO;
-
-        public override void InitData()
-        {
-            base.InitData();
-            
-            // 查找或创建 HiZ 集成组件
-            _hizIntegrator = GetComponent<VegetationHizIntegrator>();
-            if (_hizIntegrator == null && _enableHiZCulling)
-            {
-                _hizIntegrator = gameObject.AddComponent<VegetationHizIntegrator>();
-            }
-        }
 
         private void Start()
         {
@@ -171,7 +154,7 @@ namespace VegetationSystem.HiZIntegration
         }
 
         /// <summary>
-        /// 渲染迁移到 RenderPass，Update 不再执行剔除与绘制。
+        /// 保留空 Update 以阻止基类旧的 Update 渲染路径继续执行。
         /// </summary>
         protected void Update()
         {
@@ -225,45 +208,11 @@ namespace VegetationSystem.HiZIntegration
                 cullingCS.SetInt(HizReversedZId, 
                     HiZTechnique.HizPlatformCompatibility.UsesReversedZ() ? 1 : 0);
                 
-                // 设置 VP 矩阵 - 修复：不转置，Shader 中使用 mul(matrix, vector) 顺序
+                // Shader 侧使用 mul(matrix, vector)，这里不做转置。
                 Matrix4x4 vp = GL.GetGPUProjectionMatrix(cullingCamera.projectionMatrix, false) * 
                               cullingCamera.worldToCameraMatrix;
                 cullingCS.SetMatrix(VPMatrixId, vp);
-
-                // Vector4 worldPos = posGO.transform.position;
-                // worldPos.w = 1f;
-                // var clipPos = vp * worldPos;
-                // var ndcPos = clipPos / clipPos.w;
-                // Debug.Log("[VegetationHiZ] 屏幕坐标：" + ndcPos);
-                // var depth = ReadPixelFromRenderTexture(_depthPyramid.DepthPyramidTexture);
-                // Debug.Log("[VegetationHiZ] 深度：" + depth);
             }
-        }
-        
-        // 读取 RenderTexture 指定坐标的颜色值
-        public Color ReadPixelFromRenderTexture(RenderTexture rt)
-        {
-            // 保存当前激活的 RenderTexture
-            RenderTexture previous = RenderTexture.active;
-    
-            // 设置要读取的 RenderTexture 为激活状态
-            RenderTexture.active = rt;
-    
-            // 创建临时 Texture2D 来读取像素
-            Texture2D tex = new Texture2D(rt.width, rt.height, TextureFormat.R16, false);
-    
-            // 读取整个纹理的像素数据
-            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
-            tex.Apply();
-    
-            // 获取指定坐标的颜色值
-            Color pixelColor = tex.GetPixel(2048, rt.height / 2);
-    
-            // 清理资源
-            Destroy(tex);
-            RenderTexture.active = previous;
-    
-            return pixelColor;
         }
 
 
@@ -601,55 +550,14 @@ namespace VegetationSystem.HiZIntegration
         }
 
         /// <summary>
-        /// 切换 HiZ 剔除开关
-        /// </summary>
-        public void ToggleHiZCulling()
-        {
-            _enableHiZCulling = !_enableHiZCulling;
-            InitializeHiZ();
-            
-            if (_hizIntegrator != null)
-            {
-                _hizIntegrator.EnableHiZCulling = _enableHiZCulling;
-            }
-            
-            Debug.Log($"[VegetationHiZ] HiZ 剔除：{(_enableHiZCulling ? "启用" : "禁用")}");
-        }
-
-        /// <summary>
         /// 设置 HiZ 剔除启用状态
         /// </summary>
         public void SetHiZCullingEnabled(bool enabled)
         {
             _enableHiZCulling = enabled;
             InitializeHiZ();
-            
-            if (_hizIntegrator != null)
-            {
-                _hizIntegrator.EnableHiZCulling = enabled;
-            }
-        }
 
-        private void OnGUI()
-        {
-            // 简单的调试面板
-            GUILayout.BeginArea(new Rect(Screen.width - 200, 10, 190, 100));
-            GUILayout.BeginVertical("box");
-            
-            GUILayout.Label($"HiZ: {(_enableHiZCulling ? "ON" : "OFF")}");
-            GUILayout.Label($"Mode: {_hizCullingMode}");
-            if (_depthPyramid != null)
-            {
-                GUI.DrawTexture(new Rect(Screen.width - 200, 200, 256, 256), _depthPyramid.DepthPyramidTexture);
-            }
-            
-            if (GUILayout.Button("Toggle HiZ"))
-            {
-                ToggleHiZCulling();
-            }
-            
-            GUILayout.EndVertical();
-            GUILayout.EndArea();
+            Debug.Log($"[VegetationHiZ] HiZ 剔除：{(_enableHiZCulling ? "启用" : "禁用")}");
         }
     }
 }
