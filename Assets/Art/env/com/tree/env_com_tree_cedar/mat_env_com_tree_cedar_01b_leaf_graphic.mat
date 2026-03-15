@@ -222,7 +222,7 @@ Material:
     - _WindJitter: 0.25
     - _WindNoiseSize: 3
     - _WindSpeed: 1
-    - _WindStrength: 0.2
+    - _WindStrength: 1
     - _WindTitle: 0
     - _WorkflowMode: 1
     - _ZTest: 4

@@ -8,7 +8,6 @@
 CBUFFER_START(UnityPerMaterial)
     float4 _Color;
     float _WindStrength;
-    float _BoundsRadius;
     float4 _MainTex_ST;
     float _WindSpeed;
     float _LeafStrength;

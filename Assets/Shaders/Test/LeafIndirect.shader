@@ -5,7 +5,6 @@
         _MainTex ("Texture", 2D) = "white" {}
         _Color ("Color", Color) = (1,1,1,1)
         _WindStrength ("Wind Strength", Range(0, 1)) = 0.5
-        _BoundsRadius ("Bounds Radius", Float) = 50
         [Toggle(GRAPHICDRAW_ON)] graphicDraw("使用批处理绘制",float) = 1
         [Main(Wind,_,on,off)] _WindGroup("Wind Properties",float) = 0
         [Sub(Wind)] _WindSpeed("WindSpeed",float) = 1

@@ -6,23 +6,23 @@ Shader "URP/VgSystem/GrassIndirect"
         _Color ("Color", Color) = (1,1,1,1)
         _WindStrength ("Wind Strength", Range(0, 1)) = 0.5
         _BoundsRadius ("Bounds Radius", Float) = 50
-        [Toggle(GRAPHICDRAW_ON)] graphicDraw("使用批处理绘制",float) = 1
-        
-         [Main(Preset, _, on, off)] _PresetGroup ("Preset Samples", float) = 0
-		[Preset(Preset, LWGUI_Preset_BlendMode)] _BlendMode ("Blend Mode Preset", float) = 0
-    	[SubToggle(Preset,_ALPHATEST_ON)] _AlphaTest("启用透明裁剪", Float) = 0
-    	[Sub(Preset)] _Cutoff("透明裁剪阈值", Range(0,1)) = 0.5
-		[SubEnum(Preset, UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 2
-    	[SubToggle(Preset,_ENVIRONMENTREFLECTIONS_OFF)] _EnvironmentReflections_Off("_EnvironmentReflections Off",Float) = 0
-		[SubEnum(Preset, UnityEngine.Rendering.BlendMode)] _SrcBlend ("SrcBlend", Float) = 1
-		[SubEnum(Preset, UnityEngine.Rendering.BlendMode)] _DstBlend ("DstBlend", Float) = 0
-		[SubToggle(Preset)] _ZWrite ("ZWrite ", Float) = 1
-		[SubEnum(Preset, UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Float) = 4 // 4 is LEqual
-		[SubEnum(Preset, RGBA, 15, RGB, 14)] _ColorMask ("ColorMask", Float) = 15 // 15 is RGBA (binary 1111)
-		[BitMask(Preset)] _Stencil ("Stencil", Int) = 0
-		[BitMask(Preset, Left, Bit6, Bit5, Bit4, Description, Bit2, Bit1, Right)] _StencilWithDescription ("Stencil With Description", Int) = 0
+        [Toggle(GRAPHICDRAW_ON)] graphicDraw("Use Batch Draw", float) = 1
+
+        [Main(Preset, _, on, off)] _PresetGroup ("Preset Samples", float) = 0
+        [Preset(Preset, LWGUI_Preset_BlendMode)] _BlendMode ("Blend Mode Preset", float) = 0
+        [SubToggle(Preset,_ALPHATEST_ON)] _AlphaTest("Alpha Clip", Float) = 0
+        [Sub(Preset)] _Cutoff("Alpha Clip Threshold", Range(0,1)) = 0.5
+        [SubEnum(Preset, UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 2
+        [SubToggle(Preset,_ENVIRONMENTREFLECTIONS_OFF)] _EnvironmentReflections_Off("_EnvironmentReflections Off", Float) = 0
+        [SubEnum(Preset, UnityEngine.Rendering.BlendMode)] _SrcBlend ("SrcBlend", Float) = 1
+        [SubEnum(Preset, UnityEngine.Rendering.BlendMode)] _DstBlend ("DstBlend", Float) = 0
+        [SubToggle(Preset)] _ZWrite ("ZWrite ", Float) = 1
+        [SubEnum(Preset, UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Float) = 4
+        [SubEnum(Preset, RGBA, 15, RGB, 14)] _ColorMask ("ColorMask", Float) = 15
+        [BitMask(Preset)] _Stencil ("Stencil", Int) = 0
+        [BitMask(Preset, Left, Bit6, Bit5, Bit4, Description, Bit2, Bit1, Right)] _StencilWithDescription ("Stencil With Description", Int) = 0
     }
-    
+
     HLSLINCLUDE
         #include "../HLSL/VgSystem/VgVertexInput.hlsl"
         #include "../HLSL/VgSystem/VgVertexWind.hlsl"
@@ -37,29 +37,24 @@ Shader "URP/VgSystem/GrassIndirect"
             "UniversalMaterialType" = "Lit"
             "IgnoreProjector" = "True"
         }
+
         Pass
         {
             Name "ForwardLit"
-            
+
             Tags
             {
                 "LightMode" = "UniversalForward"
             }
-            
-            // Render State Commands
+
             Blend[_SrcBlend][_DstBlend]
             ZWrite[_ZWrite]
             Cull[_Cull]
-            
+
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-
-            //--------------------------------------
-            // GPU Instancing
             #pragma multi_compile_instancing
-
-            // Lighting & shadows
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _ _ADDITIONAL_LIGHTS
             #pragma multi_compile _ _FORWARD_PLUS
@@ -68,7 +63,6 @@ Shader "URP/VgSystem/GrassIndirect"
             #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-            
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
@@ -76,27 +70,28 @@ Shader "URP/VgSystem/GrassIndirect"
                 float _BoundsRadius;
                 float4 _MainTex_ST;
             CBUFFER_END
-            
-            TEXTURE2D(_MainTex);SAMPLER(sampler_MainTex);
+
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
 
             struct Attributes
             {
                 float3 positionOS : POSITION;
-                float3 normal     : NORMAL;
-                float2 uv         : TEXCOORD0;
-                float4 color      : COLOR;
+                float3 normal : NORMAL;
+                float2 uv : TEXCOORD0;
+                float4 color : COLOR;
                 uint instanceID : SV_InstanceID;
             };
 
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                float2 uv         : TEXCOORD0;
+                float2 uv : TEXCOORD0;
                 float3 positionWS : TEXCOORD1;
-                float3 normalWS   : TEXCOORD2;
+                float3 normalWS : TEXCOORD2;
             };
 
-            Varyings vert (Attributes IN)
+            Varyings vert(Attributes IN)
             {
                 WindStruct wind_data;
                 wind_data.windSpeed = 1;
@@ -107,22 +102,24 @@ Shader "URP/VgSystem/GrassIndirect"
                 wind_data.bendStrength = 1.5;
                 wind_data.bendSpeed = 1;
                 wind_data.bendWait = 1.2;
-                wind_data.windDirection = half2(1,1);
-                
-                half3 wind = PlantWind(wind_data);    
+                wind_data.windDirection = half2(1, 1);
+                wind_data.instanceID = IN.instanceID;
+
+                half3 wind = PlantWind(wind_data);
                 IN.positionOS.xyz += wind;
-                float3 worldPos = GetInstanceWorldPosition(IN.positionOS,IN.instanceID);
+
+                float3 worldPos = GetInstanceWorldPosition(IN.positionOS, IN.instanceID);
                 Varyings OUT;
                 OUT.positionCS = TransformWorldToHClip(worldPos);
-                OUT.uv = TRANSFORM_TEX(IN.uv,_MainTex);
+                OUT.uv = TRANSFORM_TEX(IN.uv, _MainTex);
                 OUT.positionWS = worldPos;
                 OUT.normalWS = GetInstanceWorldNormal(IN.normal, IN.instanceID);
                 return OUT;
             }
 
-            half4 frag (Varyings input) : SV_Target
+            half4 frag(Varyings input) : SV_Target
             {
-                real4 baseColor = SAMPLE_TEXTURE2D(_MainTex,sampler_MainTex,input.uv);
+                real4 baseColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
                 clip(baseColor.a - 0.5);
 
                 half3 albedo = baseColor.rgb * _Color.rgb;
@@ -192,22 +189,22 @@ Shader "URP/VgSystem/GrassIndirect"
             {
                 "LightMode" = "ShadowCaster"
             }
-            
+
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
-            //#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
-            
+
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
                 float _WindStrength;
                 float _BoundsRadius;
                 float4 _MainTex_ST;
             CBUFFER_END
-            
-            TEXTURE2D(_MainTex);SAMPLER(sampler_MainTex);
+
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
 
             float3 _LightDirection;
             float3 _LightPosition;
@@ -215,48 +212,47 @@ Shader "URP/VgSystem/GrassIndirect"
             struct Attributes
             {
                 float3 positionOS : POSITION;
-                float3 normal     : NORMAL;
-                float2 uv         : TEXCOORD0;
+                float3 normal : NORMAL;
+                float2 uv : TEXCOORD0;
                 uint instanceID : SV_InstanceID;
             };
 
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                float2 uv         : TEXCOORD0;
+                float2 uv : TEXCOORD0;
             };
 
             float4 GetShadowPositionHClip(Attributes input)
             {
-                float3 positionWS = GetInstanceWorldPosition(input.positionOS,input.instanceID);
+                float3 positionWS = GetInstanceWorldPosition(input.positionOS, input.instanceID);
 
-            #if _CASTING_PUNCTUAL_LIGHT_SHADOW
+                #if _CASTING_PUNCTUAL_LIGHT_SHADOW
                 float3 lightDirectionWS = normalize(_LightPosition - positionWS);
-            #else
+                #else
                 float3 lightDirectionWS = _LightDirection;
-            #endif
+                #endif
 
                 float4 positionCS = TransformWorldToHClip(positionWS);
 
-            #if UNITY_REVERSED_Z
+                #if UNITY_REVERSED_Z
                 positionCS.z = min(positionCS.z, UNITY_NEAR_CLIP_VALUE);
-            #else
+                #else
                 positionCS.z = max(positionCS.z, UNITY_NEAR_CLIP_VALUE);
-            #endif
+                #endif
 
                 return positionCS;
             }
 
-            Varyings vert (Attributes IN)
+            Varyings vert(Attributes IN)
             {
-                // float3 worldPos = GetInstanceWorldPosition(IN.positionOS,IN.instanceID);
                 Varyings OUT;
                 OUT.positionCS = GetShadowPositionHClip(IN);
-                OUT.uv = TRANSFORM_TEX(IN.uv,_MainTex);
+                OUT.uv = TRANSFORM_TEX(IN.uv, _MainTex);
                 return OUT;
             }
 
-            half4 frag (Varyings input) : SV_Target
+            half4 frag(Varyings input) : SV_Target
             {
                 return 0;
             }
@@ -266,25 +262,20 @@ Shader "URP/VgSystem/GrassIndirect"
         Pass
         {
             Name "DephtOnly"
-            
+
             Tags
             {
                 "LightMode" = "DepthOnly"
             }
-            
-            // Render State Commands
+
             Blend[_SrcBlend][_DstBlend]
             ZWrite[_ZWrite]
             Cull[_Cull]
-            
+
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-
-            //--------------------------------------
-            // GPU Instancing
             #pragma multi_compile_instancing
-            
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
@@ -292,25 +283,26 @@ Shader "URP/VgSystem/GrassIndirect"
                 float _BoundsRadius;
                 float4 _MainTex_ST;
             CBUFFER_END
-            
-            TEXTURE2D(_MainTex);SAMPLER(sampler_MainTex);
+
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
 
             struct Attributes
             {
                 float3 positionOS : POSITION;
-                float3 normal     : NORMAL;
-                float2 uv         : TEXCOORD0;
-                float4 color      : COLOR;
+                float3 normal : NORMAL;
+                float2 uv : TEXCOORD0;
+                float4 color : COLOR;
                 uint instanceID : SV_InstanceID;
             };
 
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                float2 uv         : TEXCOORD0;
+                float2 uv : TEXCOORD0;
             };
 
-            Varyings vert (Attributes IN)
+            Varyings vert(Attributes IN)
             {
                 WindStruct wind_data;
                 wind_data.windSpeed = 1;
@@ -321,25 +313,28 @@ Shader "URP/VgSystem/GrassIndirect"
                 wind_data.bendStrength = 1.5;
                 wind_data.bendSpeed = 1;
                 wind_data.bendWait = 1.2;
-                wind_data.windDirection = half2(1,1);
-                
-                half3 wind = PlantWind(wind_data);    
+                wind_data.windDirection = half2(1, 1);
+                wind_data.instanceID = IN.instanceID;
+
+                half3 wind = PlantWind(wind_data);
                 IN.positionOS.xyz += wind;
-                float3 worldPos = GetInstanceWorldPosition(IN.positionOS,IN.instanceID);
+
+                float3 worldPos = GetInstanceWorldPosition(IN.positionOS, IN.instanceID);
                 Varyings OUT;
                 OUT.positionCS = TransformWorldToHClip(worldPos);
-                OUT.uv = TRANSFORM_TEX(IN.uv,_MainTex);
+                OUT.uv = TRANSFORM_TEX(IN.uv, _MainTex);
                 return OUT;
             }
 
-            half frag (Varyings input) : SV_Target
+            half frag(Varyings input) : SV_Target
             {
-                real4 finalColor = SAMPLE_TEXTURE2D(_MainTex,sampler_MainTex,input.uv);
+                real4 finalColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
                 clip(finalColor.a - 0.5);
                 return input.positionCS.z;
             }
             ENDHLSL
         }
     }
+
     CustomEditor "LWGUI.LWGUI"
 }

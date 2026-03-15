@@ -2,6 +2,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using VegetationSystem.HiZIntegration;
 using ProfilingScope = UnityEngine.Rendering.ProfilingScope;
 
 namespace HiZTechnique
@@ -69,6 +70,9 @@ namespace HiZTechnique
             var hizSystem = HizSystem.Instance;
             if (hizSystem == null || !hizSystem.IsActive)
                 return;
+
+            if (!HasAnyDepthPyramidConsumers())
+                return;
             
             // 设置并添加Render Pass
             if (_renderPass.Setup(hizSystem.GetDepthPyramid()))
@@ -83,6 +87,26 @@ namespace HiZTechnique
         public void SetEnabled(bool enabled)
         {
             _isEnabled = enabled;
+        }
+
+        internal static bool HasAnyDepthPyramidConsumers()
+        {
+            var vegetationSystems = Object.FindObjectsByType<VegetationSystemObjectHiZ>(FindObjectsSortMode.None);
+            if (vegetationSystems == null || vegetationSystems.Length == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < vegetationSystems.Length; i++)
+            {
+                var system = vegetationSystems[i];
+                if (system != null && system.RequiresDepthPyramid)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
     
@@ -110,6 +134,11 @@ namespace HiZTechnique
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
             if (_depthPyramid == null || !_depthPyramid.IsInitialized)
+            {
+                return;
+            }
+
+            if (!HizRenderFeature.HasAnyDepthPyramidConsumers())
             {
                 return;
             }
@@ -183,6 +212,7 @@ namespace HiZTechnique
         {
             try
             {
+                
                 var property = renderer.GetType().GetProperty("DepthTexture",
                     System.Reflection.BindingFlags.NonPublic |
                     System.Reflection.BindingFlags.Instance);

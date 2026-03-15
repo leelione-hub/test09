@@ -27,6 +27,7 @@ Varyings vert (Attributes IN)
     wind_data.bendSpeed = _BendSpeed;
     wind_data.bendWait = _BendWait;
     wind_data.windDirection = _WindDirection.xy;
+    wind_data.instanceID = IN.instanceID;
                 
     half3 wind = PlantWind(wind_data);    
 

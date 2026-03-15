@@ -425,21 +425,29 @@ namespace VegetationSystem
             GrassInstanceData instanceData = new GrassInstanceData()
             {
                 position  = treeInstanceData.position,
-                rotationY = 0,
+                rotationY = treeInstanceData.rotation,
                 scale     = treeInstanceData.scale
             };
             return instanceData;
         }
 
-        public VegetationRenderSubMeshData ConverToSubMeshData(Material material, int subMesh, int layer,
-            ShadowCastingMode shadowMode, Mesh mesh, GraphicsBuffer visibleBuffer)
+        public VegetationRenderSubMeshData ConverToSubMeshData(
+            Material material,
+            int subMesh,
+            int layer,
+            uint renderingLayerMask,
+            ShadowCastingMode shadowMode,
+            Mesh mesh,
+            GraphicsBuffer visibleBuffer)
         {
             var subMat          = new Material(material);
             RenderParams subRp = new RenderParams(subMat)
             {
                 worldBounds       = new Bounds(Vector3.zero, Vector3.one * 5000f),
                 layer             = layer,
-                shadowCastingMode = shadowMode
+                shadowCastingMode = shadowMode,
+                renderingLayerMask = renderingLayerMask,
+                receiveShadows = true
             };
                     
             VegetationRenderSubMeshData subMeshData = new VegetationRenderSubMeshData();
@@ -465,7 +473,7 @@ namespace VegetationSystem
             return (n * y) / (h1 * H) - n;
         }
         
-        public void InitVegetationRenderData(TerrainTreeDatas treeDatas, Vector3 terrainSize)
+        public void InitVegetationRenderData(TerrainTreeDatas treeDatas, Vector3 terrainSize, int renderLayer = -1)
         {
             Dictionary<int, List<GrassInstanceData>> dicInstanceDatas = new Dictionary<int, List<GrassInstanceData>>();
             Dictionary<int, List<ChunkInfoBuffer>>   dicChunkInfoBuffer = new Dictionary<int, List<ChunkInfoBuffer>>();
@@ -617,6 +625,7 @@ namespace VegetationSystem
                 var   tanfov = MathF.Tan(Camera.main.fieldOfView * 0.5f * 3.14159f / 180f);
                 var   h1     = tanfov * near;
                 var   tan25  = Mathf.Tan(Mathf.PI * 0.1389f);
+                int targetLayer = renderLayer >= 0 ? renderLayer : prefab.layer;
                 for (int j = 0; j < lods.Length && j < 3; j++)
                 {
                     float H =  lods[j].screenRelativeTransitionHeight;
@@ -649,8 +658,14 @@ namespace VegetationSystem
                         data.instanceMaxCount, instanceStride);
                     for (int n = 0; n < lodMesh.subMeshCount; n++)
                     {
-                        lodData.SubMeshDatas[n] = ConverToSubMeshData(lodRender.sharedMaterials[n], n, prefab.layer,
-                            j < 1 ? lodRender.shadowCastingMode : ShadowCastingMode.Off, lodMesh,lodData.VisibleInstanceBuffer);
+                        lodData.SubMeshDatas[n] = ConverToSubMeshData(
+                            lodRender.sharedMaterials[n],
+                            n,
+                            targetLayer,
+                            lodRender.renderingLayerMask,
+                            lodRender.shadowCastingMode,
+                            lodMesh,
+                            lodData.VisibleInstanceBuffer);
                     }
                     data.LodDatas[j] = lodData;
                 }
@@ -658,8 +673,14 @@ namespace VegetationSystem
                 data.SubMeshDatas = new VegetationRenderSubMeshData[mesh.subMeshCount];
                 for (int k = 0; k < mesh.subMeshCount; k++)
                 {
-                    data.SubMeshDatas[k] = ConverToSubMeshData(meshRenderer.sharedMaterials[k], k, prefab.layer,
-                        shadowMode, mesh, data.VisibleInstanceBuffer);
+                    data.SubMeshDatas[k] = ConverToSubMeshData(
+                        meshRenderer.sharedMaterials[k],
+                        k,
+                        targetLayer,
+                        meshRenderer.renderingLayerMask,
+                        shadowMode,
+                        mesh,
+                        data.VisibleInstanceBuffer);
                 }
                 
                 // data.rp.material.EnableKeyword(VgConstantProperty.KW_GPUINSTANCEON);

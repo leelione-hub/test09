@@ -14,6 +14,7 @@ struct WindStruct
     half bendSpeed;
     half bendWait;
     half2 windDirection;
+    uint instanceID;
 };
 
 float Remap(float inValue, float minold ,float maxOld, float minNew, float maxNew)
@@ -34,7 +35,12 @@ float3 ApplyWind(float3 position, float3 normal, float strength)
 
 half3 PlantWind(WindStruct windData)
 {
-    float3 objToWorld = mul( GetObjectToWorldMatrix(), float4( float3( 0,0,0 ), 1 ) ).xyz;
+    float3 objToWorld;
+    #ifdef GRAPHICDRAW_ON
+        objToWorld = GetInstanceWorldPosition(float3(0, 0, 0), windData.instanceID);
+    #else
+        objToWorld = TransformObjectToWorld(float3(0, 0, 0));
+    #endif
     float objXZ = objToWorld.x + objToWorld.z;
     float a = windData.windSpeed * _TimeParameters.x * windData.vertexColor.g + objXZ;
     half f1 = sin(a);

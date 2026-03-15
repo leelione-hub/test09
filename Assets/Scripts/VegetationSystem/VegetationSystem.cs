@@ -70,7 +70,7 @@ namespace VegetationSystem
             treeDatas = JsonUtility.FromJson<TerrainTreeDatas>(chunkDatas.text);
             
             vgRender  = new VgRender();
-            vgRender.InitVegetationRenderData(treeDatas, terrain.terrainData.size);
+            vgRender.InitVegetationRenderData(treeDatas, terrain.terrainData.size, gameObject.layer);
             vgCulling = new VgCulling(vgRender, cullingCS);
             
             InitBuffer();

@@ -479,7 +479,8 @@ namespace HiZTechnique
             
             // 保持宽高比
             float aspectRatio = (float)cameraDepthTexture.width / cameraDepthTexture.height;
-            _baseSize.x = CeilToPowerOfTwo(Mathf.RoundToInt(_baseSize.y * aspectRatio));
+            int targetWidth = Mathf.RoundToInt(_baseSize.y * aspectRatio);
+            _baseSize.x = CeilToPowerOfTwo(Mathf.Min(cameraDepthTexture.width, targetWidth));
             
             // 计算mip级别数量
             _mipCount = Mathf.Min(
@@ -507,6 +508,22 @@ namespace HiZTechnique
             x |= x >> 8;
             x |= x >> 16;
             return x + 1;
+        }
+
+        /// <summary>
+        /// 向下取整到2的幂，避免HiZ基础层比分辨率源更大
+        /// </summary>
+        private int FloorToPowerOfTwo(int x)
+        {
+            if (x < 1) return 1;
+
+            int power = 1;
+            while ((power << 1) > 0 && (power << 1) <= x)
+            {
+                power <<= 1;
+            }
+
+            return power;
         }
         
         /// <summary>

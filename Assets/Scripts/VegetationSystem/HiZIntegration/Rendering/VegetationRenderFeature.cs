@@ -102,7 +102,7 @@ namespace VegetationSystem.HiZIntegration
                 return;
             }
 
-            if (camera.cameraType != CameraType.Game)
+            if (!(camera.cameraType == CameraType.Game || camera.cameraType == CameraType.SceneView))
             {
                 return;
             }
