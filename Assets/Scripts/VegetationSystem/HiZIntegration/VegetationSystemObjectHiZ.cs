@@ -43,6 +43,7 @@ namespace VegetationSystem.HiZIntegration
         private bool _useHiZShader;
         private int _originalKernel = -1;
         private int _hizKernel = -1;
+        private int _classifyKernel = -1;
 
         private static readonly int HizDepthTextureId = Shader.PropertyToID("_HizDepthTexture");
         private static readonly int HizTextureSizeId = Shader.PropertyToID("_HizTextureSize");
@@ -56,6 +57,7 @@ namespace VegetationSystem.HiZIntegration
         private int _lastCullingFrame = -1;
         private int _lastShadowSubmitFrame = -1;
         private readonly Dictionary<int, int> _forwardPassIndexCache = new Dictionary<int, int>();
+        private bool _initializedHiZ;
 
         public bool RequiresDepthPyramid => isActiveAndEnabled && _enableHiZCulling && _hizCullingMode == HiZCullingMode.GPU;
 
@@ -64,11 +66,18 @@ namespace VegetationSystem.HiZIntegration
             InitializeHiZ();
         }
 
+        private void OnEnable()
+        {
+            _initializedHiZ = false;
+        }
+
         private void InitializeHiZ()
         {
+            _initializedHiZ = true;
             _useHiZShader = false;
             _originalKernel = -1;
             _hizKernel = -1;
+            _classifyKernel = -1;
 
             if (!_enableHiZCulling)
             {
@@ -135,6 +144,7 @@ namespace VegetationSystem.HiZIntegration
         {
             _originalKernel = TryFindKernel(cullingCS, "CullInstances");
             _hizKernel = TryFindKernel(cullingCS, "CullInstancesWithHiZ");
+            _classifyKernel = TryFindKernel(cullingCS, "ClassifyVisibleInstances");
         }
 
         private static int TryFindKernel(ComputeShader shader, string kernelName)
@@ -152,6 +162,17 @@ namespace VegetationSystem.HiZIntegration
             {
                 return -1;
             }
+        }
+
+        private void EnsureHiZInitialized()
+        {
+            if (_initializedHiZ &&
+                (_originalKernel >= 0 || _hizKernel >= 0 || _classifyKernel >= 0 || cullingCS != null))
+            {
+                return;
+            }
+
+            InitializeHiZ();
         }
 
         // Keep the base Update path from running for this derived type.
@@ -206,6 +227,8 @@ namespace VegetationSystem.HiZIntegration
 
         public new void CSDispatch()
         {
+            EnsureHiZInitialized();
+
             if (cullingCS == null)
             {
                 return;
@@ -218,6 +241,7 @@ namespace VegetationSystem.HiZIntegration
                                    _depthPyramid.DepthPyramidTexture != null;
 
             int kernel = canUseHiZKernel ? _hizKernel : _originalKernel;
+            int classifyKernel = _classifyKernel;
 
             if (canUseHiZKernel)
             {
@@ -253,6 +277,12 @@ namespace VegetationSystem.HiZIntegration
                 return;
             }
 
+            if (classifyKernel < 0)
+            {
+                Debug.LogError("[VegetationHiZ] No valid ClassifyVisibleInstances kernel found, skip culling for this frame.");
+                return;
+            }
+
             Plane[] planes = GeometryUtility.CalculateFrustumPlanes(cullingCamera);
             Vector4[] planeData = new Vector4[6];
             for (int i = 0; i < 6; i++)
@@ -264,6 +294,7 @@ namespace VegetationSystem.HiZIntegration
 
             cullingCS.SetVectorArray(VGC.FRUSTUMPLANES, planeData);
             cullingCS.SetVector(VGC.CAMERAPOSITION, cullingCamera.transform.position);
+            uint[] visibleCountReset = { 0u };
 
             VgRender vgRender = GetVgRender();
             if (vgRender == null)
@@ -274,25 +305,11 @@ namespace VegetationSystem.HiZIntegration
             for (int i = 0; i < vgRender.vegetationRenderDataList.Count; i++)
             {
                 var renderData = vgRender.vegetationRenderDataList[i];
-                Bounds mergedBounds = default;
-                bool hasMergedBounds = false;
+                int activeLodCount = renderData.activeLodCount;
 
-                for (int j = 0; j < renderData.LodDatas.Length; j++)
+                for (int j = 0; j < activeLodCount; j++)
                 {
                     var lodData = renderData.LodDatas[j];
-                    if (lodData.mesh != null)
-                    {
-                        if (!hasMergedBounds)
-                        {
-                            mergedBounds = lodData.mesh.bounds;
-                            hasMergedBounds = true;
-                        }
-                        else
-                        {
-                            mergedBounds.Encapsulate(lodData.mesh.bounds);
-                        }
-                    }
-
                     for (int k = 0; k < lodData.SubMeshDatas.Length; k++)
                     {
                         uint[] subArgs = new uint[5];
@@ -307,35 +324,16 @@ namespace VegetationSystem.HiZIntegration
                     lodData.VisibleInstanceBuffer.SetCounterValue(0);
                 }
 
+                renderData.VisibleInstanceBuffer.SetCounterValue(0);
+                renderData.VisibleInstanceCountBuffer.SetData(visibleCountReset);
+
                 cullingCS.SetBuffer(kernel, VGC.ALLINSTANCES, renderData.AllInstanceBuffer);
                 cullingCS.SetBuffer(kernel, VGC.VISIBLECHUNINFOS, renderData.VisibleChunkBuffer);
                 cullingCS.SetInt(VGC.CHUNKCOUNT, renderData.visibleChunkCount);
-
-                Vector3 extents = hasMergedBounds ? mergedBounds.extents : Vector3.one * 0.5f;
-                Vector3 boundsCenter = hasMergedBounds ? mergedBounds.center : Vector3.zero;
-                cullingCS.SetVector("_Extents", extents);
-                cullingCS.SetVector("_BoundsCenterOS", boundsCenter);
-
-                Vector4 lodDistance = renderData.lodDistance;
-                for (int lod = 0; lod < 4; lod++)
-                {
-                    if (lod < QualitySettings.maximumLODLevel)
-                    {
-                        lodDistance[lod] = -1f;
-                    }
-                    else
-                    {
-                        lodDistance[lod] = renderData.lodDistance[lod] * QualitySettings.lodBias;
-                    }
-                }
-
-                cullingCS.SetVector(VGC.LODDISTANCE, lodDistance);
-                cullingCS.SetBuffer(kernel, VGC.LOD0VISIBLEINSTANCES, renderData.LodDatas[0].VisibleInstanceBuffer);
-                cullingCS.SetBuffer(kernel, VGC.LOD1VISIBLEINSTANCES, renderData.LodDatas[1].VisibleInstanceBuffer);
-                cullingCS.SetBuffer(kernel, VGC.LOD2VISIBLEINSTANCES, renderData.LodDatas[2].VisibleInstanceBuffer);
-                cullingCS.SetBuffer(kernel, VGC.LOD0ARGSBUFFER, renderData.LodDatas[0].SubMeshDatas[0].argsBuffer);
-                cullingCS.SetBuffer(kernel, VGC.LOD1ARGSBUFFER, renderData.LodDatas[1].SubMeshDatas[0].argsBuffer);
-                cullingCS.SetBuffer(kernel, VGC.LOD2ARGSBUFFER, renderData.LodDatas[2].SubMeshDatas[0].argsBuffer);
+                cullingCS.SetVector(VGC.BOUNDSEXTENTS, renderData.boundsExtentsOS);
+                cullingCS.SetVector(VGC.BOUNDSCENTEROS, renderData.boundsCenterOS);
+                cullingCS.SetBuffer(kernel, VGC.CULLEDVISIBLEINSTANCES, renderData.VisibleInstanceBuffer);
+                cullingCS.SetBuffer(kernel, VGC.VISIBLEINSTANCECOUNT, renderData.VisibleInstanceCountBuffer);
 
                 if (renderData.visibleChunkCount < 1)
                 {
@@ -346,13 +344,35 @@ namespace VegetationSystem.HiZIntegration
                 int groupY = Mathf.CeilToInt(renderData.chunkMaxCount / 64f);
                 cullingCS.Dispatch(kernel, groupX, groupY, 1);
 
-                for (int n = 0; n < renderData.LodDatas.Length; n++)
+                int classifyGroupX = Mathf.CeilToInt(renderData.instanceMaxCount / 64f);
+                cullingCS.SetBuffer(classifyKernel, VGC.CULLEDVISIBLEINSTANCESINPUT, renderData.VisibleInstanceBuffer);
+                cullingCS.SetBuffer(classifyKernel, VGC.VISIBLEINSTANCECOUNT, renderData.VisibleInstanceCountBuffer);
+                cullingCS.SetVector(VGC.CAMERAPOSITION, cullingCamera.transform.position);
+
+                for (int lodIndex = 0; lodIndex < activeLodCount; lodIndex++)
                 {
-                    for (int k = 0; k < renderData.LodDatas[n].SubMeshDatas.Length; k++)
+                    if (!vgRender.TryGetLodDistanceRange(
+                            renderData,
+                            lodIndex,
+                            cullingCamera,
+                            QualitySettings.lodBias,
+                            QualitySettings.maximumLODLevel,
+                            out Vector2 distanceRange))
+                    {
+                        continue;
+                    }
+
+                    var lodData = renderData.LodDatas[lodIndex];
+                    cullingCS.SetVector(VGC.LODDISTANCERANGE, distanceRange);
+                    cullingCS.SetBuffer(classifyKernel, VGC.VISIBLEINSTANCES, lodData.VisibleInstanceBuffer);
+                    cullingCS.SetBuffer(classifyKernel, VGC.ARGSBUFFER, lodData.SubMeshDatas[0].argsBuffer);
+                    cullingCS.Dispatch(classifyKernel, classifyGroupX, 1, 1);
+
+                    for (int k = 0; k < lodData.SubMeshDatas.Length; k++)
                     {
                         GraphicsBuffer.CopyCount(
-                            renderData.LodDatas[n].VisibleInstanceBuffer,
-                            renderData.LodDatas[n].SubMeshDatas[k].argsBuffer,
+                            lodData.VisibleInstanceBuffer,
+                            lodData.SubMeshDatas[k].argsBuffer,
                             sizeof(uint));
                     }
                 }
@@ -361,6 +381,8 @@ namespace VegetationSystem.HiZIntegration
 
         public void ExecuteCullingForRenderPass(Camera renderCamera)
         {
+            EnsureHiZInitialized();
+
             if (_lastCullingFrame == Time.frameCount)
             {
                 return;
@@ -405,7 +427,7 @@ namespace VegetationSystem.HiZIntegration
             for (int i = 0; i < vgRender.vegetationRenderDataList.Count; i++)
             {
                 var renderData = vgRender.vegetationRenderDataList[i];
-                for (int lodIndex = 0; lodIndex < renderData.LodDatas.Length; lodIndex++)
+                for (int lodIndex = 0; lodIndex < renderData.activeLodCount; lodIndex++)
                 {
                     var lodData = renderData.LodDatas[lodIndex];
                     if (lodData.mesh == null)
@@ -453,7 +475,7 @@ namespace VegetationSystem.HiZIntegration
             for (int i = 0; i < vgRender.vegetationRenderDataList.Count; i++)
             {
                 var renderData = vgRender.vegetationRenderDataList[i];
-                for (int lodIndex = 0; lodIndex < renderData.LodDatas.Length; lodIndex++)
+                for (int lodIndex = 0; lodIndex < renderData.activeLodCount; lodIndex++)
                 {
                     var lodData = renderData.LodDatas[lodIndex];
                     if (lodData.mesh == null)

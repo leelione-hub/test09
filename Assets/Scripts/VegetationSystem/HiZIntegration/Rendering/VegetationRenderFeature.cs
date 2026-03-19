@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.Rendering.Universal.Internal;
 using ProfilingScope = UnityEngine.Rendering.ProfilingScope;
 
 namespace VegetationSystem.HiZIntegration
@@ -21,11 +22,13 @@ namespace VegetationSystem.HiZIntegration
 
             [Tooltip("是否支持场景视图")]
             public bool supportSceneView = false;
+            public bool runInEditMode = false;
         }
 
         public VegetationRenderFeatureSettings settings = new VegetationRenderFeatureSettings();
 
         private VegetationRenderPass _renderPass;
+
         private bool _subscribedToBeginCameraRendering;
 
         public override void Create()
@@ -42,6 +45,11 @@ namespace VegetationSystem.HiZIntegration
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
+            if (!Application.isPlaying && !settings.runInEditMode)
+            {
+                return;
+            }
+
             var camera = renderingData.cameraData.camera;
             if (camera == null)
             {
@@ -97,6 +105,11 @@ namespace VegetationSystem.HiZIntegration
                 return;
             }
 
+            if (!Application.isPlaying && !settings.runInEditMode)
+            {
+                return;
+            }
+
             if (camera == null)
             {
                 return;
@@ -139,6 +152,11 @@ namespace VegetationSystem.HiZIntegration
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
             var camera = renderingData.cameraData.camera;
             if (camera == null)
             {

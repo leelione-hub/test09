@@ -21,7 +21,38 @@ struct Varyings
     float3 normalWS   : TEXCOORD2;
 };
 
-inline half3 AccumulateVegetationAdditionalLights(float3 positionWS, float3 normalWS, float4 positionCS)
+inline half VgVegetationDiffuseTerm(float3 normalWS, float3 lightDirWS)
+{
+    #if defined(_LAMBERT_HALFLAMBERT)
+    return saturate(dot(normalWS, lightDirWS) * 0.5h + 0.5h);
+    #else
+    return saturate(dot(normalWS, lightDirWS));
+    #endif
+}
+
+inline half3 VgVegetationSpecularTerm(float3 normalWS, float3 lightDirWS, float3 viewDirWS, half3 lightColor)
+{
+    #if defined(_SPECULARHIGHLIGHTS)
+    half3 halfDir = SafeNormalize(lightDirWS + viewDirWS);
+    half ndh = saturate(dot(normalWS, halfDir));
+    half exponent = lerp(64.0h, 4.0h, saturate(_Roughness));
+    return lightColor * pow(ndh, exponent);
+    #else
+    return 0;
+    #endif
+}
+
+inline half3 VgVegetationEnvironmentReflection(float3 normalWS, float3 viewDirWS, float3 positionWS, float2 normalizedScreenSpaceUV)
+{
+    #if defined(_ENVIRONMENTREFLECTIONS)
+    half3 reflectVector = reflect(-viewDirWS, normalWS);
+    return GlossyEnvironmentReflection(reflectVector, positionWS, saturate(_Roughness), 1.0h, normalizedScreenSpaceUV);
+    #else
+    return 0;
+    #endif
+}
+
+inline half3 AccumulateVegetationAdditionalLights(float3 positionWS, float3 normalWS, float3 viewDirWS, float4 positionCS)
 {
     half3 lighting = 0;
 
@@ -41,7 +72,7 @@ inline half3 AccumulateVegetationAdditionalLights(float3 positionWS, float3 norm
 
         Light light = GetAdditionalLight(lightIndex, positionWS, shadowMask);
         half atten = light.distanceAttenuation * light.shadowAttenuation;
-        half addNdotL = saturate(dot(normalWS, light.direction));
+        half addNdotL = VgVegetationDiffuseTerm(normalWS, light.direction);
 
         #ifdef _LIGHT_LAYERS
         if (!IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
@@ -51,13 +82,14 @@ inline half3 AccumulateVegetationAdditionalLights(float3 positionWS, float3 norm
         #endif
 
         lighting += light.color * (atten * addNdotL);
+        lighting += VgVegetationSpecularTerm(normalWS, light.direction, viewDirWS, light.color) * atten;
     }
     #endif
 
     LIGHT_LOOP_BEGIN(pixelLightCount)
         Light light = GetAdditionalLight(lightIndex, positionWS, shadowMask);
         half atten = light.distanceAttenuation * light.shadowAttenuation;
-        half addNdotL = saturate(dot(normalWS, light.direction));
+        half addNdotL = VgVegetationDiffuseTerm(normalWS, light.direction);
 
         #ifdef _LIGHT_LAYERS
         if (!IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
@@ -67,6 +99,7 @@ inline half3 AccumulateVegetationAdditionalLights(float3 positionWS, float3 norm
         #endif
 
         lighting += light.color * (atten * addNdotL);
+        lighting += VgVegetationSpecularTerm(normalWS, light.direction, viewDirWS, light.color) * atten;
     LIGHT_LOOP_END
     #endif
 
@@ -87,8 +120,10 @@ Varyings vert(Attributes IN)
     windData.windDirection = _WindDirection.xy;
     windData.instanceID = IN.instanceID;
 
+    #if defined(_WIND_ON) || defined(_CIRCE_WIND_ON)
     half3 wind = PlantWind(windData);
     IN.positionOS.xyz += wind;
+    #endif
 
     float3 worldPos = GetInstanceWorldPosition(IN.positionOS, IN.instanceID);
 
@@ -109,15 +144,19 @@ half4 frag(Varyings input) : SV_Target
 
     half3 albedo = baseColor.rgb * _Color.rgb;
     half3 normalWS = normalize(input.normalWS);
+    half3 viewDirWS = SafeNormalize(_WorldSpaceCameraPos - input.positionWS);
+    float2 normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
 
     float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
     Light mainLight = GetMainLight(shadowCoord);
-    half NdotL = saturate(dot(normalWS, mainLight.direction));
+    half NdotL = VgVegetationDiffuseTerm(normalWS, mainLight.direction);
 
     half3 lighting = SampleSH(normalWS);
     lighting += mainLight.color * (mainLight.distanceAttenuation * mainLight.shadowAttenuation * NdotL);
+    lighting += VgVegetationSpecularTerm(normalWS, mainLight.direction, viewDirWS, mainLight.color) * (mainLight.distanceAttenuation * mainLight.shadowAttenuation);
+    lighting += VgVegetationEnvironmentReflection(normalWS, viewDirWS, input.positionWS, normalizedScreenSpaceUV);
 
-    lighting += AccumulateVegetationAdditionalLights(input.positionWS, normalWS, input.positionCS);
+    lighting += AccumulateVegetationAdditionalLights(input.positionWS, normalWS, viewDirWS, input.positionCS);
 
     return half4(albedo * lighting, baseColor.a * _Color.a);
 }

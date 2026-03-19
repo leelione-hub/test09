@@ -14,6 +14,7 @@ CBUFFER_START(UnityPerMaterial)
     float _BendStrength;
     float _BendSpeed;
     float _BendWait;
+    float _Roughness;
     half4 _WindDirection;
     half _Cutoff;
 CBUFFER_END

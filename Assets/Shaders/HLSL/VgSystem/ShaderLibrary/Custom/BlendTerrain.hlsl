@@ -17,8 +17,6 @@ struct BlendTerrainInput
     half terrainBrightness;
     half terrainRoughness;
     half4 terrainTransformData;
-    sampler2D terrainColor2D;
-    //sampler2D terrainNormal2D;
     half4 simpleTerrainColor;
 };
 struct BlendTerrainOutput
@@ -95,7 +93,6 @@ void BlendTerrain(BlendTerrainInput input,half3x3 tangentToWorld,out BlendTerrai
     //float2 uv = float2(input.positionWS.x, input.positionWS.z) - float2(input.terrainTransformData.x,input.terrainTransformData.y);
     //uv = uv/half2(input.terrainTransformData.z,input.terrainTransformData.w) + float2(0.5,0.5);
 
-    //half4 _tColor = tex2D(input.terrainColor2D,uv);
     half4 _tColor = input.simpleTerrainColor;
     half3 terrainColor = _tColor.rgb * input.terrainBrightness;
 
@@ -134,8 +131,6 @@ void M_SimpleBlendTerrainn(half4 tangentWS , float3 normalWS, float3 positionWS 
     blendTerrainInput.terrainBrightness = _TerrainBrightness;
     blendTerrainInput.terrainRoughness = _TerrainRoughness;
     blendTerrainInput.terrainTransformData = _TerrainTransformData;
-    blendTerrainInput.terrainColor2D = _TerrainColor;
-    //blendTerrainInput.terrainNormal2D = _TerrainNormal;
     blendTerrainInput.simpleTerrainColor = colorTerrain;
 
     
@@ -160,8 +155,6 @@ void M_BlendTerrain(half4 tangentWS , float3 normalWS, float3 positionWS ,
     blendTerrainInput.terrainBrightness = _TerrainBrightness;
     blendTerrainInput.terrainRoughness = _TerrainRoughness;
     blendTerrainInput.terrainTransformData = _TerrainTransformData;
-    blendTerrainInput.terrainColor2D = _TerrainColor;
-    //blendTerrainInput.terrainNormal2D = _TerrainNormal;
     blendTerrainInput.simpleTerrainColor = half4(0,0,0,0);
     
     BlendTerrainNew(blendTerrainInput,
@@ -216,10 +209,6 @@ void M_BlendMoss(half4 tangentWS , float3 normalWS, float3 positionWS ,
     blendTerrainInput.terrainBrightness = _TerrainBrightness;
     blendTerrainInput.terrainRoughness = _TerrainRoughness;
     blendTerrainInput.terrainTransformData = _TerrainTransformData;
-    blendTerrainInput.terrainColor2D = _TerrainColor;
-    //blendTerrainInput.terrainNormal2D = _TerrainNormal;
-
-    
     BlendMoss(blendTerrainInput,
         half3x3(tangentWS.xyz, bitangent.xyz, normalWS.xyz) ,mossColor,
         output);    

@@ -70,7 +70,7 @@ namespace VegetationSystem
             treeDatas = JsonUtility.FromJson<TerrainTreeDatas>(chunkDatas.text);
             
             vgRender  = new VgRender();
-            vgRender.InitVegetationRenderData(treeDatas, terrain.terrainData.size, gameObject.layer);
+            vgRender.InitVegetationRenderData(treeDatas, terrain.terrainData.size, terrain, gameObject.layer);
             vgCulling = new VgCulling(vgRender, cullingCS);
             
             InitBuffer();
@@ -138,7 +138,8 @@ namespace VegetationSystem
         /// </summary>
         public void CSDispatch()
         {
-            int kernel = cullingCS.FindKernel("CullInstances");
+            int cullKernel = cullingCS.FindKernel("CullInstances");
+            int classifyKernel = cullingCS.FindKernel("ClassifyVisibleInstances");
             GeometryUtility.CalculateFrustumPlanes(cullingCamera, planes);
             Vector4[] planeData = new Vector4[6];
             for (int i = 0; i < 6; i++)
@@ -154,16 +155,15 @@ namespace VegetationSystem
             }
             cullingCS.SetVectorArray(VGC.FRUSTUMPLANES, planeData);
             
-            //temp
-            uint[] args       = new uint[5];
-            //
+            uint[] visibleCountReset = { 0u };
 
             if (vgRender == null) return;
 
             for (int i = 0; i < vgRender.vegetationRenderDataList.Count; i++)
             {
-                var    renderData = vgRender.vegetationRenderDataList[i];
-                for (int j = 0; j < renderData.LodDatas.Length; j++)
+                var renderData = vgRender.vegetationRenderDataList[i];
+                int activeLodCount = renderData.activeLodCount;
+                for (int j = 0; j < activeLodCount; j++)
                 {
                     var lodData = renderData.LodDatas[j];
                     for (int k = 0; k < lodData.SubMeshDatas.Length; k++)
@@ -178,55 +178,58 @@ namespace VegetationSystem
                     }
                     lodData.VisibleInstanceBuffer.SetCounterValue(0);
                 }
-                cullingCS.SetBuffer(kernel, VGC.ALLINSTANCES, renderData.AllInstanceBuffer);
-                // cullingCS.SetBuffer(kernel,VGC.VISIBLEINSTANCES,lodData.VisibleInstanceBuffer);
-                // cullingCS.SetBuffer(kernel, VGC.ARGSBUFFER, lodData.SubMeshDatas[0].argsBuffer);
-                cullingCS.SetBuffer(kernel, VGC.VISIBLECHUNINFOS, renderData.VisibleChunkBuffer);
+
+                renderData.VisibleInstanceBuffer.SetCounterValue(0);
+                renderData.VisibleInstanceCountBuffer.SetData(visibleCountReset);
+
+                cullingCS.SetBuffer(cullKernel, VGC.ALLINSTANCES, renderData.AllInstanceBuffer);
+                cullingCS.SetBuffer(cullKernel, VGC.VISIBLECHUNINFOS, renderData.VisibleChunkBuffer);
                 cullingCS.SetInt(VGC.CHUNKCOUNT,renderData.visibleChunkCount);
-                
                 cullingCS.SetVector(VGC.CAMERAPOSITION,cullingCamera.gameObject.transform.position);
-
-                //临时方案，适配动态修改lod全局参数
-                Vector4 lodDistance = renderData.lodDistance;
-                for (int lod = 0; lod < 4; lod++)
-                {
-                    if (lod < QualitySettings.maximumLODLevel)
-                    {
-                        lodDistance[lod] = -1f;
-                    }
-                    else
-                    {
-                        lodDistance[lod] = renderData.lodDistance[lod] * QualitySettings.lodBias;
-                    }
-                    
-                }
-                cullingCS.SetVector(VGC.LODDISTANCE, lodDistance);
-
-                cullingCS.SetBuffer(kernel, VGC.LOD0VISIBLEINSTANCES, renderData.LodDatas[0].VisibleInstanceBuffer);
-                cullingCS.SetBuffer(kernel, VGC.LOD1VISIBLEINSTANCES, renderData.LodDatas[1].VisibleInstanceBuffer);
-                cullingCS.SetBuffer(kernel, VGC.LOD2VISIBLEINSTANCES, renderData.LodDatas[2].VisibleInstanceBuffer);
-                cullingCS.SetBuffer(kernel, VGC.LOD0ARGSBUFFER, renderData.LodDatas[0].SubMeshDatas[0].argsBuffer);
-                cullingCS.SetBuffer(kernel, VGC.LOD1ARGSBUFFER, renderData.LodDatas[1].SubMeshDatas[0].argsBuffer);
-                cullingCS.SetBuffer(kernel, VGC.LOD2ARGSBUFFER, renderData.LodDatas[2].SubMeshDatas[0].argsBuffer);
-                    
+                cullingCS.SetVector(VGC.BOUNDSEXTENTS, renderData.boundsExtentsOS);
+                cullingCS.SetVector(VGC.BOUNDSCENTEROS, renderData.boundsCenterOS);
+                cullingCS.SetBuffer(cullKernel, VGC.CULLEDVISIBLEINSTANCES, renderData.VisibleInstanceBuffer);
+                cullingCS.SetBuffer(cullKernel, VGC.VISIBLEINSTANCECOUNT, renderData.VisibleInstanceCountBuffer);
 
                 if (renderData.visibleChunkCount < 1)
                 {
                     continue;
                 }
-                
+
                 int groupX = renderData.visibleChunkCount;
                 int groupY = Mathf.CeilToInt(renderData.chunkMaxCount / 64f);
-                cullingCS.Dispatch(kernel, groupX, groupY, 1);
+                cullingCS.Dispatch(cullKernel, groupX, groupY, 1);
 
-                for (int n = 0; n < renderData.LodDatas.Length; n++)
+                int classifyGroupX = Mathf.CeilToInt(renderData.instanceMaxCount / 64f);
+                cullingCS.SetBuffer(classifyKernel, VGC.CULLEDVISIBLEINSTANCESINPUT, renderData.VisibleInstanceBuffer);
+                cullingCS.SetBuffer(classifyKernel, VGC.VISIBLEINSTANCECOUNT, renderData.VisibleInstanceCountBuffer);
+                cullingCS.SetVector(VGC.CAMERAPOSITION,cullingCamera.gameObject.transform.position);
+
+                for (int lodIndex = 0; lodIndex < activeLodCount; lodIndex++)
                 {
-                    for (int k = 0; k < renderData.LodDatas[n].SubMeshDatas.Length; k++)
+                    if (!vgRender.TryGetLodDistanceRange(
+                            renderData,
+                            lodIndex,
+                            cullingCamera,
+                            QualitySettings.lodBias,
+                            QualitySettings.maximumLODLevel,
+                            out Vector2 distanceRange))
                     {
-                        GraphicsBuffer.CopyCount(renderData.LodDatas[n].VisibleInstanceBuffer,renderData.LodDatas[n].SubMeshDatas[k].argsBuffer,sizeof(uint) * 1);
+                        continue;
+                    }
+
+                    var lodData = renderData.LodDatas[lodIndex];
+                    cullingCS.SetVector(VGC.LODDISTANCERANGE, distanceRange);
+                    cullingCS.SetBuffer(classifyKernel, VGC.VISIBLEINSTANCES, lodData.VisibleInstanceBuffer);
+                    cullingCS.SetBuffer(classifyKernel, VGC.ARGSBUFFER, lodData.SubMeshDatas[0].argsBuffer);
+                    cullingCS.Dispatch(classifyKernel, classifyGroupX, 1, 1);
+
+                    for (int k = 0; k < lodData.SubMeshDatas.Length; k++)
+                    {
+                        GraphicsBuffer.CopyCount(lodData.VisibleInstanceBuffer, lodData.SubMeshDatas[k].argsBuffer, sizeof(uint));
                     }
                 }
-                
+
             }
         }
         
@@ -240,7 +243,7 @@ namespace VegetationSystem
                 // {
                 //     Graphics.RenderMeshIndirect(renderData.SubMeshDatas[i].rp,renderData.mesh,renderData.SubMeshDatas[i].argsBuffer);
                 // }
-                for (int i = 0; i < renderData.LodDatas.Length; i++)
+                for (int i = 0; i < renderData.activeLodCount; i++)
                 {
                     var lodData = renderData.LodDatas[i];
                     for (int j = 0; j < lodData.SubMeshDatas.Length; j++)

@@ -1,5 +1,6 @@
 #pragma kernel CullInstances
 #pragma kernel CullInstancesWithHiZ
+#pragma kernel ClassifyVisibleInstances
 
 // Platform compatibility keyword for reversed Z.
 #pragma multi_compile _ HIZ_REVERSED_Z
@@ -14,16 +15,15 @@ struct GrassInstanceData
 };
 
 StructuredBuffer<GrassInstanceData> _AllInstances;
-AppendStructuredBuffer<GrassInstanceData> _Lod0VisibleInstances;
-AppendStructuredBuffer<GrassInstanceData> _Lod1VisibleInstances;
-AppendStructuredBuffer<GrassInstanceData> _Lod2VisibleInstances;
+StructuredBuffer<GrassInstanceData> _CulledVisibleInstancesInput;
+AppendStructuredBuffer<GrassInstanceData> _CulledVisibleInstances;
+AppendStructuredBuffer<GrassInstanceData> _VisibleInstances;
+RWStructuredBuffer<uint> _VisibleInstanceCount;
 
-RWStructuredBuffer<uint> _Lod0ArgsBuffer;
-RWStructuredBuffer<uint> _Lod1ArgsBuffer;
-RWStructuredBuffer<uint> _Lod2ArgsBuffer;
+RWStructuredBuffer<uint> _ArgsBuffer;
 
 float4 _FrustumPlanes[6];
-float4 _LodDistance;
+float2 _LodDistanceRange;
 float3 _CameraPosition;
 
 struct ChunkInfo
@@ -409,23 +409,8 @@ void CullInstances(
             }
         }
 
-        float distance = length(_CameraPosition - position);
-
-        if (distance < _LodDistance.x)
-        {
-            _Lod0VisibleInstances.Append(data);
-            InterlockedAdd(_Lod0ArgsBuffer[1], 1u);
-        }
-        else if (distance < _LodDistance.y)
-        {
-            _Lod1VisibleInstances.Append(data);
-            InterlockedAdd(_Lod1ArgsBuffer[1], 1u);
-        }
-        else if (distance < _LodDistance.z)
-        {
-            _Lod2VisibleInstances.Append(data);
-            InterlockedAdd(_Lod2ArgsBuffer[1], 1u);
-        }
+        _CulledVisibleInstances.Append(data);
+        InterlockedAdd(_VisibleInstanceCount[0], 1u);
     }
 }
 
@@ -437,4 +422,23 @@ void CullInstancesWithHiZ(
     uint groupIndex : SV_GroupIndex)
 {
     CullInstances(dispatchThreadID, groupID, groupThreadID, groupIndex);
+}
+
+[numthreads(64, 1, 1)]
+void ClassifyVisibleInstances(uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+    uint instanceIndex = dispatchThreadID.x;
+    uint visibleCount = _VisibleInstanceCount[0];
+    if (instanceIndex >= visibleCount)
+    {
+        return;
+    }
+
+    GrassInstanceData data = _CulledVisibleInstancesInput[instanceIndex];
+    float distance = length(_CameraPosition - data.position);
+    if (distance >= _LodDistanceRange.x && distance < _LodDistanceRange.y)
+    {
+        _VisibleInstances.Append(data);
+        InterlockedAdd(_ArgsBuffer[1], 1u);
+    }
 }

@@ -46,8 +46,10 @@ Varyings DepthOnlyVertex(Attributes input)
     wind_data.windDirection = _WindDirection.xy;
     wind_data.instanceID = input.instanceID;
 
+    #if defined(_WIND_ON) || defined(_CIRCE_WIND_ON)
     half3 wind = PlantWind(wind_data);
     input.positionOS.xyz += wind;
+    #endif
     
     // 获取实例化的世界位置
     float3 worldPos = GetInstanceWorldPosition(input.positionOS.xyz, input.instanceID);

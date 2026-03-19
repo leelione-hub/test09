@@ -28,7 +28,8 @@ sampler2D _WindLineTex;
 
 half _TerrainRoughness;
 half4 _TerrainTransformData = half4(0, 0, 1, 1);
-sampler2D _TerrainColor;
+TEXTURE2D(_TerrainColor);
+SAMPLER(sampler_TerrainColor);
 
 half3 _GrassInteractivePos;
 half _Cyclone;

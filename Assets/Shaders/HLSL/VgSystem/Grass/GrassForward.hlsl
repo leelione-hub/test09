@@ -81,6 +81,25 @@ void VgBlendTerrainInstance(
     output.blendMask = smoothStep;
 }
 
+void VgBlendTerrainBakedInstance(
+    float3 positionWS,
+    float originY,
+    SurfaceData surfaceData,
+    out BlendTerrainOutput output)
+{
+    float2 uv = float2(positionWS.x, positionWS.z) - float2(_TerrainTransformData.x, _TerrainTransformData.y);
+    uv = uv / half2(_TerrainTransformData.z, _TerrainTransformData.w);
+
+    half4 terrainSample = SAMPLE_TEXTURE2D_LOD(_TerrainColor, sampler_TerrainColor, uv, 0);
+    half3 terrainColor = terrainSample.rgb * _TerrainBrightness;
+    float smoothStep = smoothstep(_BlendRange.x, _BlendRange.y, positionWS.y - originY);
+
+    output.blendColor = lerp(terrainColor, surfaceData.albedo, smoothStep);
+    output.blendNormal = half3(0, 0, 1);
+    output.blendRoughness = lerp(_TerrainRoughness, 1.0h, smoothStep);
+    output.blendMask = smoothStep;
+}
+
 void VgBlendMossInstance(
     float3 positionWS,
     float originY,
@@ -149,7 +168,11 @@ half4 LitPassFragment(GrassVaryings input) : SV_Target
         #ifdef _USEGROSS
         VgBlendMossInstance(input.positionWS, input.originY, surfaceData, blendTerrainOutput);
         #else
+            #if defined(_TERRAIN_BLEND_BAKED)
+        VgBlendTerrainBakedInstance(input.positionWS, input.originY, surfaceData, blendTerrainOutput);
+            #else
         VgBlendTerrainInstance(input.positionWS, input.originY, input.tangentWS, input.normalWS, surfaceData, blendTerrainOutput);
+            #endif
         #endif
 
     blendMask = blendTerrainOutput.blendMask;
