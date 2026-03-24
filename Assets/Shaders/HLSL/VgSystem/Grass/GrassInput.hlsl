@@ -26,11 +26,6 @@ float4 _BaseMap_MipInfo;
 
 sampler2D _WindLineTex;
 
-half _TerrainRoughness;
-half4 _TerrainTransformData = half4(0, 0, 1, 1);
-TEXTURE2D(_TerrainColor);
-SAMPLER(sampler_TerrainColor);
-
 half3 _GrassInteractivePos;
 half _Cyclone;
 
@@ -40,7 +35,6 @@ half4 _BaseColor;
 half4 _MossUV;
 half4 _Color1;
 half4 _Color2;
-half2 _BlendRange;
 half2 _WindDirection;
 half _TopIntensity;
 half _ColorUpLevel;
@@ -50,7 +44,6 @@ half _Smoothness;
 half _Roughness;
 half _Metallic;
 half _Alpha;
-half _TerrainBrightness;
 half _WindSpeed;
 half _WindForce;
 half _WindWavesScale;
@@ -186,7 +179,7 @@ inline GrassWindResult CalculateGrassWind(float4 positionOS, uint instanceID)
     float noise2 = snoise3D(float3(cycloneUV, 0.0)) * _CycloneAmount;
     float cyclone = saturate(_CycloneScale + distanceOut + _Range) * _CycloneIntensity * noise2 * _Cyclone;
 
-    result.offset = windOffset * _WindForce * 30.0 + (interaction + cyclone) * positionOS.y;
+    result.offset = windOffset * _WindForce * 30.0 * float3(2,0,2) + (interaction + cyclone) * positionOS.y ;
     result.color = float4(result.offset, interactionMask);
     return result;
 }
@@ -228,8 +221,8 @@ void ApplyPerPixelDisplacement(half3 viewDirTS, inout float2 uv)
 
 inline void M_InitializeGrassSurfaceData(float2 uv, float4 positionOS, out SurfaceData outSurfaceData)
 {
-    half4 albedoAlpha = SampleAlbedoAlpha(uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
-    outSurfaceData.alpha = Alpha(albedoAlpha.a, 1, _Cutoff) * _Alpha;
+    half4 albedoAlpha = VgSampleAlbedoAlpha(uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
+    outSurfaceData.alpha = VgAlpha(albedoAlpha.a, 1, _Cutoff) * _Alpha;
 
     half3 color1 = albedoAlpha.rgb * _Color1.rgb;
     half3 color2 = albedoAlpha.rgb * _Color2.rgb;

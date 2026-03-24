@@ -21,7 +21,7 @@ struct BRDFDataExt
     half shadowStrength;
 };
 
-struct LightingData
+struct CustomLightingData
 {
     half3 giColor;
     half3 mainLightColor;
@@ -30,9 +30,9 @@ struct LightingData
     half3 emissionColor;
 };
 
-LightingData CreateLightingData(InputData inputData, SurfaceData surfaceData)
+CustomLightingData CreateCustomLightingData(InputData inputData, SurfaceData surfaceData)
 {
-    LightingData lightingData;
+    CustomLightingData lightingData;
 
     lightingData.giColor = inputData.bakedGI;
     lightingData.emissionColor = surfaceData.emission;
@@ -98,7 +98,7 @@ half3 LightingPhysicallyBased(BRDFData brdfData, BRDFData brdfDataClearCoat,BRDF
     return LightingPhysicallyBased(brdfData, brdfDataClearCoat, brdfDataExt,light.color, light.direction, light.distanceAttenuation * light.shadowAttenuation, normalWS, viewDirectionWS, clearCoatMask, specularHighlightsOff);
 }
 
-half3 CalculateLightingColor(LightingData lightingData, half3 albedo)
+half3 CalculateCustomLightingColor(CustomLightingData lightingData, half3 albedo)
 {
     half3 lightingColor = 0;
 
@@ -137,18 +137,18 @@ half3 CalculateLightingColor(LightingData lightingData, half3 albedo)
     return lightingColor;
 }
 
-half4 CalculateFinalColor(LightingData lightingData, half alpha)
+half4 CalculateCustomFinalColor(CustomLightingData lightingData, half alpha)
 {
-    half3 finalColor = CalculateLightingColor(lightingData, 1);
+    half3 finalColor = CalculateCustomLightingColor(lightingData, 1);
 
     return half4(finalColor, alpha);
 }
 
 
-half4 UniversalFragmentPBR(InputData inputData,inout SurfaceData surfaceData, SurfaceDataExt surfaceDataExt,out LightingData lightingData)
+half4 UniversalFragmentPBR(InputData inputData,inout SurfaceData surfaceData, SurfaceDataExt surfaceDataExt,out CustomLightingData lightingData)
 {
     #if defined(BLINNPHONGLIGHT_ON)
-        lightingData = CreateLightingData(inputData, surfaceData);
+        lightingData = CreateCustomLightingData(inputData, surfaceData);
         return UniversalFragmentBlinnPhong(inputData,surfaceData,surfaceDataExt);
     #endif
     
@@ -189,7 +189,7 @@ half4 UniversalFragmentPBR(InputData inputData,inout SurfaceData surfaceData, Su
     // NOTE: We don't apply AO to the GI here because it's done in the lighting calculation below...
     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI);
 
-    lightingData = CreateLightingData(inputData, surfaceData);
+    lightingData = CreateCustomLightingData(inputData, surfaceData);
 
     lightingData.giColor = GlobalIllumination(brdfData, brdfDataClearCoat, surfaceData.clearCoatMask,
                                               inputData.bakedGI, aoFactor.indirectAmbientOcclusion, inputData.positionWS,
@@ -218,7 +218,7 @@ half4 UniversalFragmentPBR(InputData inputData,inout SurfaceData surfaceData, Su
         if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
             #endif
         {
-            lightingData.additionalLightsColor += LightingPhysicallyBased(brdfData, brdfDataClearCoat, light,
+            lightingData.additionalLightsColor += LightingPhysicallyBased(brdfData, brdfDataClearCoat, brdfDataExt, light,
                                                                           inputData.normalWS, inputData.viewDirectionWS,
                                                                           surfaceData.clearCoatMask, specularHighlightsOff);
         }
@@ -232,7 +232,7 @@ half4 UniversalFragmentPBR(InputData inputData,inout SurfaceData surfaceData, Su
     if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
         #endif
     {
-        lightingData.additionalLightsColor += LightingPhysicallyBased(brdfData, brdfDataClearCoat, light,
+        lightingData.additionalLightsColor += LightingPhysicallyBased(brdfData, brdfDataClearCoat, brdfDataExt, light,
                                                                       inputData.normalWS, inputData.viewDirectionWS,
                                                                       surfaceData.clearCoatMask, specularHighlightsOff);
     }
@@ -244,9 +244,9 @@ half4 UniversalFragmentPBR(InputData inputData,inout SurfaceData surfaceData, Su
     #endif
     #if REAL_IS_HALF
     // Clamp any half.inf+ to HALF_MAX
-    return min(CalculateFinalColor(lightingData, surfaceData.alpha), HALF_MAX);
+    return min(CalculateCustomFinalColor(lightingData, surfaceData.alpha), HALF_MAX);
     #else
-    return CalculateFinalColor(lightingData, surfaceData.alpha);
+    return CalculateCustomFinalColor(lightingData, surfaceData.alpha);
     #endif
 }
 #endif

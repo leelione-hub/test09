@@ -2,8 +2,7 @@
 #define VG_GRASS_FORWARD_INCLUDED
 
 #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassInput.hlsl"
-#include "Assets/Shaders/HLSL/VgSystem/ShaderLibrary/Lighting.hlsl"
-#include "Assets/Shaders/HLSL/VgSystem/ShaderLibrary/Custom/SurfaceDataExt.hlsl"
+#include "Assets/Shaders/HLSL/Lighting/CustomLighting.hlsl"
 #include "Assets/Shaders/HLSL/VgSystem/ShaderLibrary/Custom/BlendTerrain.hlsl"
 
 #if defined(LOD_FADE_CROSSFADE)
@@ -52,33 +51,15 @@ void VgBlendTerrainInstance(
     SurfaceData surfaceData,
     out BlendTerrainOutput output)
 {
-    float2 uv = float2(positionWS.x, positionWS.z) - float2(_TerrainTransformData.x, _TerrainTransformData.y);
-    uv = uv / half2(_TerrainTransformData.z, _TerrainTransformData.w);
-
-    half4 splatControl = SAMPLE_TEXTURE2D(_Control, sampler_Control, uv);
-    float2 uv0 = uv * _Splat0_ST.xy + _Splat0_ST.zw;
-    float2 uv1 = uv * _Splat1_ST.xy + _Splat1_ST.zw;
-    float2 uv2 = uv * _Splat2_ST.xy + _Splat2_ST.zw;
-    float2 uv3 = uv * _Splat3_ST.xy + _Splat3_ST.zw;
-
-    float4 diffAlbedo0 = SAMPLE_TEXTURE2D_LOD(_Splat0, sampler_Splat0, uv0, 0);
-    float4 diffAlbedo1 = SAMPLE_TEXTURE2D_LOD(_Splat1, sampler_Splat1, uv1, 0);
-    float4 diffAlbedo2 = SAMPLE_TEXTURE2D_LOD(_Splat2, sampler_Splat2, uv2, 0);
-    float4 diffAlbedo3 = SAMPLE_TEXTURE2D_LOD(_Splat3, sampler_Splat3, uv3, 0);
-
-    half4 mixedDiffuse = 0.0h;
-    mixedDiffuse += diffAlbedo0 * float4(_DiffuseRemapScale0.rgb * splatControl.rrr, 1.0);
-    mixedDiffuse += diffAlbedo1 * float4(_DiffuseRemapScale1.rgb * splatControl.ggg, 1.0);
-    mixedDiffuse += diffAlbedo2 * float4(_DiffuseRemapScale2.rgb * splatControl.bbb, 1.0);
-    mixedDiffuse += diffAlbedo3 * float4(_DiffuseRemapScale3.rgb * splatControl.aaa, 1.0);
-
-    half3 terrainColor = mixedDiffuse.rgb * _TerrainBrightness;
-    float smoothStep = smoothstep(_BlendRange.x, _BlendRange.y, positionWS.y - originY);
-
-    output.blendColor = lerp(terrainColor, surfaceData.albedo, smoothStep);
-    output.blendNormal = half3(0, 0, 1);
-    output.blendRoughness = lerp(_TerrainRoughness, 1.0h, smoothStep);
-    output.blendMask = smoothStep;
+    VgBlendTerrainFromSplat(
+        positionWS,
+        originY,
+        surfaceData.albedo,
+        _BlendRange,
+        _TerrainBrightness,
+        _VGTerrainRoughness,
+        _VGTerrainTransformData,
+        output);
 }
 
 void VgBlendTerrainBakedInstance(
@@ -87,17 +68,15 @@ void VgBlendTerrainBakedInstance(
     SurfaceData surfaceData,
     out BlendTerrainOutput output)
 {
-    float2 uv = float2(positionWS.x, positionWS.z) - float2(_TerrainTransformData.x, _TerrainTransformData.y);
-    uv = uv / half2(_TerrainTransformData.z, _TerrainTransformData.w);
-
-    half4 terrainSample = SAMPLE_TEXTURE2D_LOD(_TerrainColor, sampler_TerrainColor, uv, 0);
-    half3 terrainColor = terrainSample.rgb * _TerrainBrightness;
-    float smoothStep = smoothstep(_BlendRange.x, _BlendRange.y, positionWS.y - originY);
-
-    output.blendColor = lerp(terrainColor, surfaceData.albedo, smoothStep);
-    output.blendNormal = half3(0, 0, 1);
-    output.blendRoughness = lerp(_TerrainRoughness, 1.0h, smoothStep);
-    output.blendMask = smoothStep;
+    VgBlendTerrainFromBaked(
+        positionWS,
+        originY,
+        surfaceData.albedo,
+        _BlendRange,
+        _TerrainBrightness,
+        _VGTerrainRoughness,
+        _VGTerrainTransformData,
+        output);
 }
 
 void VgBlendMossInstance(
@@ -111,15 +90,17 @@ void VgBlendMossInstance(
     float2 uv1 = float2(positionWS.x, positionWS.z) / (half2(2, 2) / max(mossUV_xy, half2(1e-4, 1e-4)));
     float2 uv2 = mossUV_zw / max(mossUV_xy, half2(1e-4, 1e-4));
     float2 finalMossUV = uv1 + uv2;
-    half4 mossColor = SampleAlbedoAlpha(finalMossUV, TEXTURE2D_ARGS(_MossBase, sampler_MossBase));
+    half4 mossColor = VgSampleAlbedoAlpha(finalMossUV, TEXTURE2D_ARGS(_MossBase, sampler_MossBase));
 
-    half3 terrainColor = mossColor.rgb * _TerrainBrightness;
-    float smoothStep = smoothstep(_BlendRange.x, _BlendRange.y, positionWS.y - originY);
-
-    output.blendColor = lerp(terrainColor, surfaceData.albedo, smoothStep);
-    output.blendNormal = half3(0, 0, 1);
-    output.blendRoughness = lerp(_TerrainRoughness, 1.0h, smoothStep);
-    output.blendMask = smoothStep;
+    VgBlendTerrainFromColor(
+        positionWS,
+        originY,
+        surfaceData.albedo,
+        mossColor.rgb,
+        _BlendRange,
+        _TerrainBrightness,
+        _VGTerrainRoughness,
+        output);
 }
 
 GrassVaryings LitPassVertex(GrassAttributes input)
@@ -168,11 +149,7 @@ half4 LitPassFragment(GrassVaryings input) : SV_Target
         #ifdef _USEGROSS
         VgBlendMossInstance(input.positionWS, input.originY, surfaceData, blendTerrainOutput);
         #else
-            #if defined(_TERRAIN_BLEND_BAKED)
         VgBlendTerrainBakedInstance(input.positionWS, input.originY, surfaceData, blendTerrainOutput);
-            #else
-        VgBlendTerrainInstance(input.positionWS, input.originY, input.tangentWS, input.normalWS, surfaceData, blendTerrainOutput);
-            #endif
         #endif
 
     blendMask = blendTerrainOutput.blendMask;
@@ -204,7 +181,8 @@ half4 LitPassFragment(GrassVaryings input) : SV_Target
     ApplyDecalToSurfaceData(input.positionCS, surfaceData, inputData);
     #endif
 
-    half4 color = UniversalFragmentBlinnPhong(inputData, surfaceData, surfaceDataExt);
+    CustomLightingData lightingData;
+    half4 color = UniversalFragmentPBR(inputData, surfaceData, surfaceDataExt, lightingData);
     color.rgb = MixFog(color.rgb, inputData.fogCoord);
     color.a = OutputAlpha(color.a, IsSurfaceTypeTransparent(_Surface));
     return color;

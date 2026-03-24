@@ -1,13 +1,13 @@
 #ifndef LEAFINDIRECT_FORWARD_INCLUDE
 #define LEAFINDIRECT_FORWARD_INCLUDE
 
-#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+#include "Assets/Shaders/HLSL/Lighting/CustomLighting.hlsl"
 
 struct Attributes
 {
     float3 positionOS : POSITION;
-    float3 normal     : NORMAL;
+    float3 normalOS   : NORMAL;
+    float4 tangentOS  : TANGENT;
     float2 uv         : TEXCOORD0;
     float4 color      : COLOR;
     uint instanceID   : SV_InstanceID;
@@ -15,150 +15,106 @@ struct Attributes
 
 struct Varyings
 {
-    float4 positionCS : SV_POSITION;
     float2 uv         : TEXCOORD0;
     float3 positionWS : TEXCOORD1;
     float3 normalWS   : TEXCOORD2;
+    float4 tangentWS  : TEXCOORD3;
+    half fogFactor    : TEXCOORD4;
+    float4 shadowCoord : TEXCOORD5;
+    half3 vertexSH    : TEXCOORD6;
+    float2 staticLightmapUV : TEXCOORD7;
+    float4 positionCS : SV_POSITION;
 };
 
-inline half VgVegetationDiffuseTerm(float3 normalWS, float3 lightDirWS)
+void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData)
 {
-    #if defined(_LAMBERT_HALFLAMBERT)
-    return saturate(dot(normalWS, lightDirWS) * 0.5h + 0.5h);
-    #else
-    return saturate(dot(normalWS, lightDirWS));
-    #endif
+    inputData = (InputData)0;
+    inputData.positionWS = input.positionWS;
+
+    half3 viewDirWS = GetWorldSpaceNormalizeViewDir(input.positionWS);
+    float sgn = input.tangentWS.w;
+    float3 bitangent = sgn * cross(input.normalWS.xyz, input.tangentWS.xyz);
+    half3x3 tangentToWorld = half3x3(input.tangentWS.xyz, bitangent.xyz, input.normalWS.xyz);
+    inputData.tangentToWorld = tangentToWorld;
+    inputData.normalWS = NormalizeNormalPerPixel(TransformTangentToWorld(normalTS, tangentToWorld));
+    inputData.viewDirectionWS = viewDirWS;
+    inputData.shadowCoord = input.shadowCoord;
+    inputData.fogCoord = InitializeInputDataFog(float4(input.positionWS, 1.0), input.fogFactor);
+    inputData.bakedGI = SAMPLE_GI(input.staticLightmapUV, input.vertexSH, inputData.normalWS);
+    inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
+    inputData.shadowMask = SAMPLE_SHADOWMASK(input.staticLightmapUV);
 }
 
-inline half3 VgVegetationSpecularTerm(float3 normalWS, float3 lightDirWS, float3 viewDirWS, half3 lightColor)
+Varyings LitPassVertex(Attributes input)
 {
-    #if defined(_SPECULARHIGHLIGHTS)
-    half3 halfDir = SafeNormalize(lightDirWS + viewDirWS);
-    half ndh = saturate(dot(normalWS, halfDir));
-    half exponent = lerp(64.0h, 4.0h, saturate(_Roughness));
-    return lightColor * pow(ndh, exponent);
-    #else
-    return 0;
-    #endif
-}
+    Varyings output = (Varyings)0;
 
-inline half3 VgVegetationEnvironmentReflection(float3 normalWS, float3 viewDirWS, float3 positionWS, float2 normalizedScreenSpaceUV)
-{
-    #if defined(_ENVIRONMENTREFLECTIONS)
-    half3 reflectVector = reflect(-viewDirWS, normalWS);
-    return GlossyEnvironmentReflection(reflectVector, positionWS, saturate(_Roughness), 1.0h, normalizedScreenSpaceUV);
-    #else
-    return 0;
-    #endif
-}
+    UNITY_SETUP_INSTANCE_ID(input);
 
-inline half3 AccumulateVegetationAdditionalLights(float3 positionWS, float3 normalWS, float3 viewDirWS, float4 positionCS)
-{
-    half3 lighting = 0;
-
-    #if defined(_ADDITIONAL_LIGHTS)
-    InputData inputData = (InputData)0;
-    inputData.positionWS = positionWS;
-    inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(positionCS);
-
-    half4 shadowMask = half4(1, 1, 1, 1);
-    uint meshRenderingLayers = GetMeshRenderingLayer();
-    uint pixelLightCount = GetAdditionalLightsCount();
-
-    #if USE_FORWARD_PLUS
-    UNITY_LOOP for (uint lightIndex = 0u; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
-    {
-        FORWARD_PLUS_SUBTRACTIVE_LIGHT_CHECK
-
-        Light light = GetAdditionalLight(lightIndex, positionWS, shadowMask);
-        half atten = light.distanceAttenuation * light.shadowAttenuation;
-        half addNdotL = VgVegetationDiffuseTerm(normalWS, light.direction);
-
-        #ifdef _LIGHT_LAYERS
-        if (!IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
-        {
-            continue;
-        }
-        #endif
-
-        lighting += light.color * (atten * addNdotL);
-        lighting += VgVegetationSpecularTerm(normalWS, light.direction, viewDirWS, light.color) * atten;
-    }
-    #endif
-
-    LIGHT_LOOP_BEGIN(pixelLightCount)
-        Light light = GetAdditionalLight(lightIndex, positionWS, shadowMask);
-        half atten = light.distanceAttenuation * light.shadowAttenuation;
-        half addNdotL = VgVegetationDiffuseTerm(normalWS, light.direction);
-
-        #ifdef _LIGHT_LAYERS
-        if (!IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
-        {
-            continue;
-        }
-        #endif
-
-        lighting += light.color * (atten * addNdotL);
-        lighting += VgVegetationSpecularTerm(normalWS, light.direction, viewDirWS, light.color) * atten;
-    LIGHT_LOOP_END
-    #endif
-
-    return lighting;
-}
-
-Varyings vert(Attributes IN)
-{
     WindStruct windData;
     windData.windSpeed = _WindSpeed;
-    windData.vertexColor = IN.color;
+    windData.vertexColor = input.color;
     windData.leafStrength = _LeafStrength;
-    windData.normalOS = IN.normal;
-    windData.positionOS = IN.positionOS.xyz;
+    windData.normalOS = input.normalOS;
+    windData.positionOS = input.positionOS.xyz;
     windData.bendStrength = _BendStrength;
     windData.bendSpeed = _BendSpeed;
     windData.bendWait = _BendWait;
     windData.windDirection = _WindDirection.xy;
-    windData.instanceID = IN.instanceID;
+    windData.instanceID = input.instanceID;
 
-    #if defined(_WIND_ON) || defined(_CIRCE_WIND_ON)
-    half3 wind = PlantWind(windData);
-    IN.positionOS.xyz += wind;
+    #if defined(_WIND_ON)
+    input.positionOS.xyz += PlantWind(windData);
     #endif
 
-    float3 worldPos = GetInstanceWorldPosition(IN.positionOS, IN.instanceID);
+    float3 positionWS = GetInstanceWorldPosition(input.positionOS, input.instanceID);
+    float3 normalWS = GetInstanceWorldNormal(input.normalOS, input.instanceID);
+    float3 tangentWS = GetInstanceWorldDirection(input.tangentOS.xyz, input.instanceID);
+    float4 positionCS = TransformWorldToHClip(positionWS);
 
-    Varyings OUT;
-    OUT.positionCS = TransformWorldToHClip(worldPos);
-    OUT.uv = TRANSFORM_TEX(IN.uv, _MainTex);
-    OUT.positionWS = worldPos;
-    OUT.normalWS = GetInstanceWorldNormal(IN.normal, IN.instanceID);
-    return OUT;
+    output.uv = TRANSFORM_TEX(input.uv, _MainTex);
+    output.positionWS = positionWS;
+    output.normalWS = normalize(normalWS);
+    output.tangentWS = float4(normalize(tangentWS), input.tangentOS.w);
+    output.fogFactor = ComputeFogFactor(positionCS.z);
+    output.shadowCoord = TransformWorldToShadowCoord(positionWS);
+    output.staticLightmapUV = 0;
+    output.vertexSH = SampleSHVertex(output.normalWS);
+    output.positionCS = positionCS;
+    return output;
 }
 
-half4 frag(Varyings input) : SV_Target
+void LitPassFragment(
+    Varyings input
+    , out half4 outColor : SV_Target0
+#ifdef _WRITE_RENDERING_LAYERS
+    , out float4 outRenderingLayers : SV_Target1
+#endif
+)
 {
-    real4 baseColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
+    SurfaceData surfaceData = (SurfaceData)0;
+    M_InitializeLeafSurfaceData(input.uv, surfaceData);
+
     #if defined(_ALPHATEST_ON)
-    clip(baseColor.a - _Cutoff);
+    clip(surfaceData.alpha - _Cutoff);
     #endif
 
-    half3 albedo = baseColor.rgb * _Color.rgb;
-    half3 normalWS = normalize(input.normalWS);
-    half3 viewDirWS = SafeNormalize(_WorldSpaceCameraPos - input.positionWS);
-    float2 normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
+    InputData inputData;
+    InitializeInputData(input, surfaceData.normalTS, inputData);
 
-    float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
-    Light mainLight = GetMainLight(shadowCoord);
-    half NdotL = VgVegetationDiffuseTerm(normalWS, mainLight.direction);
+    SurfaceDataExt surfaceDataExt;
+    surfaceDataExt.backBrightness = _BackBrightness;
+    surfaceDataExt.shadowStrength = _ShadowStrength;
 
-    half3 lighting = SampleSH(normalWS);
-    lighting += mainLight.color * (mainLight.distanceAttenuation * mainLight.shadowAttenuation * NdotL);
-    lighting += VgVegetationSpecularTerm(normalWS, mainLight.direction, viewDirWS, mainLight.color) * (mainLight.distanceAttenuation * mainLight.shadowAttenuation);
-    lighting += VgVegetationEnvironmentReflection(normalWS, viewDirWS, input.positionWS, normalizedScreenSpaceUV);
+    CustomLightingData lightingData;
+    half4 color = UniversalFragmentPBR(inputData, surfaceData, surfaceDataExt, lightingData);
+    color.rgb = MixFog(color.rgb, inputData.fogCoord);
+    outColor = color;
 
-    lighting += AccumulateVegetationAdditionalLights(input.positionWS, normalWS, viewDirWS, input.positionCS);
-
-    return half4(albedo * lighting, baseColor.a * _Color.a);
+    #ifdef _WRITE_RENDERING_LAYERS
+    uint renderingLayers = GetMeshRenderingLayer();
+    outRenderingLayers = float4(EncodeMeshRenderingLayer(renderingLayers), 0, 0, 0);
+    #endif
 }
 
 #endif

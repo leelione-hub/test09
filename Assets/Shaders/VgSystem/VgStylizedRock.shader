@@ -67,212 +67,6 @@ Shader "URP/VgSystem/StylizedRock"
 
     }
 
-    HLSLINCLUDE
-        #include "Assets/Shaders/HLSL/VgSystem/VgVertexInput.hlsl"
-        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-
-        CBUFFER_START(UnityPerMaterial)
-            float4 _BaseColor;
-            float _Cutoff;
-            float _Alpha;
-            float _RockRoughnessMax;
-            float4 _BaseMap_ST;
-        CBUFFER_END
-
-        TEXTURE2D(_BaseMap);
-        SAMPLER(sampler_BaseMap);
-
-        struct Attributes
-        {
-            float3 positionOS : POSITION;
-            float3 normalOS : NORMAL;
-            float2 uv : TEXCOORD0;
-            uint instanceID : SV_InstanceID;
-        };
-
-        struct Varyings
-        {
-            float4 positionCS : SV_POSITION;
-            float2 uv : TEXCOORD0;
-            float3 positionWS : TEXCOORD1;
-            float3 normalWS : TEXCOORD2;
-        };
-
-        float3 _LightDirection;
-        float3 _LightPosition;
-
-        Varyings ForwardVert(Attributes input)
-        {
-            Varyings output = (Varyings)0;
-            UNITY_SETUP_INSTANCE_ID(input);
-            float3 positionWS = GetInstanceWorldPosition(input.positionOS, input.instanceID);
-            output.positionCS = TransformWorldToHClip(positionWS);
-            output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
-            output.positionWS = positionWS;
-            output.normalWS = normalize(GetInstanceWorldNormal(input.normalOS, input.instanceID));
-            return output;
-        }
-
-        half VgRockDiffuseTerm(half3 normalWS, half3 lightDirWS)
-        {
-            half ndl = dot(normalWS, lightDirWS);
-            #if defined(_LAMBERT_HALFLAMBERT)
-            return saturate(ndl * 0.5h + 0.5h);
-            #else
-            return saturate(ndl);
-            #endif
-        }
-
-        half3 VgRockSpecularTerm(half3 normalWS, half3 lightDirWS, half3 viewDirWS, half3 lightColor)
-        {
-            #if defined(_SPECULARHIGHLIGHTS)
-            half3 halfDir = SafeNormalize(lightDirWS + viewDirWS);
-            half ndh = saturate(dot(normalWS, halfDir));
-            half exponent = lerp(64.0h, 4.0h, saturate(_RockRoughnessMax));
-            return lightColor * pow(ndh, exponent);
-            #else
-            return 0;
-            #endif
-        }
-
-        half3 VgRockEnvironmentReflection(half3 normalWS, half3 viewDirWS, float3 positionWS, float2 normalizedScreenSpaceUV)
-        {
-            #if defined(_ENVIRONMENTREFLECTIONS)
-            half3 reflectVector = reflect(-viewDirWS, normalWS);
-            return GlossyEnvironmentReflection(reflectVector, positionWS, saturate(_RockRoughnessMax), 1.0h, normalizedScreenSpaceUV);
-            #else
-            return 0;
-            #endif
-        }
-
-        half4 ForwardFrag(Varyings input) : SV_Target
-        {
-            half4 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
-            #if defined(_ALPHATEST_ON)
-            clip(tex.a * _Alpha - _Cutoff);
-            #endif
-
-            half3 albedo = tex.rgb * _BaseColor.rgb;
-            half3 normalWS = normalize(input.normalWS);
-            half3 viewDirWS = SafeNormalize(_WorldSpaceCameraPos - input.positionWS);
-            float2 normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
-            float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
-            Light mainLight = GetMainLight(shadowCoord);
-            half NdotL = VgRockDiffuseTerm(normalWS, mainLight.direction);
-
-            half3 lighting = SampleSH(normalWS);
-            lighting += mainLight.color * (mainLight.distanceAttenuation * mainLight.shadowAttenuation * NdotL);
-            lighting += VgRockSpecularTerm(normalWS, mainLight.direction, viewDirWS, mainLight.color) * (mainLight.distanceAttenuation * mainLight.shadowAttenuation);
-            lighting += VgRockEnvironmentReflection(normalWS, viewDirWS, input.positionWS, normalizedScreenSpaceUV);
-
-            #if defined(_ADDITIONAL_LIGHTS)
-            InputData inputData = (InputData)0;
-            inputData.positionWS = input.positionWS;
-            inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
-
-            half4 shadowMask = half4(1, 1, 1, 1);
-            uint meshRenderingLayers = GetMeshRenderingLayer();
-            uint pixelLightCount = GetAdditionalLightsCount();
-
-            #if USE_FORWARD_PLUS
-            UNITY_LOOP for (uint lightIndex = 0u; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
-            {
-                FORWARD_PLUS_SUBTRACTIVE_LIGHT_CHECK
-
-                Light light = GetAdditionalLight(lightIndex, input.positionWS, shadowMask);
-                half atten = light.distanceAttenuation * light.shadowAttenuation;
-                half addNdotL = VgRockDiffuseTerm(normalWS, light.direction);
-
-                #ifdef _LIGHT_LAYERS
-                if (!IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
-                {
-                    continue;
-                }
-                #endif
-
-                lighting += light.color * (atten * addNdotL);
-                lighting += VgRockSpecularTerm(normalWS, light.direction, viewDirWS, light.color) * atten;
-            }
-            #endif
-
-            LIGHT_LOOP_BEGIN(pixelLightCount)
-                Light light = GetAdditionalLight(lightIndex, input.positionWS, shadowMask);
-                half atten = light.distanceAttenuation * light.shadowAttenuation;
-                half addNdotL = VgRockDiffuseTerm(normalWS, light.direction);
-
-                #ifdef _LIGHT_LAYERS
-                if (!IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
-                {
-                    continue;
-                }
-                #endif
-
-                lighting += light.color * (atten * addNdotL);
-                lighting += VgRockSpecularTerm(normalWS, light.direction, viewDirWS, light.color) * atten;
-            LIGHT_LOOP_END
-            #endif
-
-            return half4(albedo * lighting, tex.a * _BaseColor.a * _Alpha);
-        }
-
-        Varyings DepthVert(Attributes input)
-        {
-            return ForwardVert(input);
-        }
-
-        half DepthFrag(Varyings input) : SV_Target
-        {
-            half4 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
-            #if defined(_ALPHATEST_ON)
-            clip(tex.a * _Alpha - _Cutoff);
-            #endif
-            return input.positionCS.z;
-        }
-
-        half4 DepthNormalsFrag(Varyings input) : SV_Target
-        {
-            half4 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
-            #if defined(_ALPHATEST_ON)
-            clip(tex.a * _Alpha - _Cutoff);
-            #endif
-            return half4(normalize(input.normalWS), 0.0);
-        }
-
-        Varyings ShadowVert(Attributes input)
-        {
-            Varyings output = (Varyings)0;
-            UNITY_SETUP_INSTANCE_ID(input);
-            float3 positionWS = GetInstanceWorldPosition(input.positionOS, input.instanceID);
-            float3 normalWS = normalize(GetInstanceWorldNormal(input.normalOS, input.instanceID));
-
-            #if _CASTING_PUNCTUAL_LIGHT_SHADOW
-            float3 lightDirectionWS = normalize(_LightPosition - positionWS);
-            #else
-            float3 lightDirectionWS = _LightDirection;
-            #endif
-
-            float4 positionCS = TransformWorldToHClip(ApplyShadowBias(positionWS, normalWS, lightDirectionWS));
-            #if UNITY_REVERSED_Z
-            positionCS.z = min(positionCS.z, UNITY_NEAR_CLIP_VALUE);
-            #else
-            positionCS.z = max(positionCS.z, UNITY_NEAR_CLIP_VALUE);
-            #endif
-
-            output.positionCS = positionCS;
-            output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
-            return output;
-        }
-
-        half4 ShadowFrag(Varyings input) : SV_Target
-        {
-            half4 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
-            #if defined(_ALPHATEST_ON)
-            clip(tex.a * _Alpha - _Cutoff);
-            #endif
-            return 0;
-        }
-    ENDHLSL
-
     SubShader
     {
         Tags
@@ -283,6 +77,8 @@ Shader "URP/VgSystem/StylizedRock"
             "UniversalMaterialType" = "Lit"
             "IgnoreProjector" = "True"
         }
+
+        LOD 300
 
         Pass
         {
@@ -295,8 +91,8 @@ Shader "URP/VgSystem/StylizedRock"
 
             HLSLPROGRAM
             #pragma target 4.5
-            #pragma vertex ForwardVert
-            #pragma fragment ForwardFrag
+            #pragma vertex LitPassVertex
+            #pragma fragment LitPassFragment
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma shader_feature_local_fragment _SPECULARHIGHLIGHTS
             #pragma shader_feature_local_fragment _ENVIRONMENTREFLECTIONS
@@ -316,6 +112,8 @@ Shader "URP/VgSystem/StylizedRock"
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Rock/RockInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Rock/RockForwardPass.hlsl"
             ENDHLSL
         }
 
@@ -335,6 +133,8 @@ Shader "URP/VgSystem/StylizedRock"
             #pragma multi_compile_instancing
             #pragma multi_compile _ GRAPHICDRAW_ON
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Rock/RockInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Rock/RockDepthOnlyPass.hlsl"
             ENDHLSL
         }
 
@@ -354,6 +154,8 @@ Shader "URP/VgSystem/StylizedRock"
             #pragma multi_compile_instancing
             #pragma multi_compile _ GRAPHICDRAW_ON
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Rock/RockInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Rock/RockDepthNormalsPass.hlsl"
             ENDHLSL
         }
 
@@ -375,6 +177,8 @@ Shader "URP/VgSystem/StylizedRock"
             #pragma multi_compile _ GRAPHICDRAW_ON
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Rock/RockInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Rock/RockShadowCasterPass.hlsl"
             ENDHLSL
         }
     }

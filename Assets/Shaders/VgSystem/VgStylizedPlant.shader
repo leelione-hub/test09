@@ -56,6 +56,14 @@ Shader "URP/VgSystem/StylizedPlant"
         [Sub(Wind)] _BendWait("Bend Wait", Range(1, 2)) = 1
         [Sub(Wind)] _LeafStrength("Leaf Strength", Float) = 0
         [Sub(Wind)] _WindSpeed("Wind Speed", Float) = 1
+        
+        [Main(WindLine, _WINDLINE_ON)] _WindLine("Wind Line", Float) = 0
+        [Sub(WindLine)][NoScaleOffset] _WindLineTex("Wind Line Tex", 2D) = "white" {}
+        [Sub(WindLine)] _WindColorIntensity("Wind Color Intensity", Float) = 1
+        [Sub(WindLine)] _WindLineDirection("Wind Line Direction", Range(0, 360)) = 0
+        [Sub(WindLine)] _WindLineScale("Wind Line Scale", Float) = 1
+        [Sub(WindLine)] _WindLineStrength("Wind Line Strength", Float) = 5
+        [Sub(WindLine)] _WindLindSpeed("Wind Line Speed", Float) = 3
 
         [Main(CirceWind, _CIRCE_WIND_ON, off)] _CirceWindGroup("Circe Wind", Float) = 0
         [Sub(CirceWind)] _CirceWindDirection("Circe Wind Direction", Vector) = (0,0,0,0)
@@ -80,7 +88,10 @@ Shader "URP/VgSystem/StylizedPlant"
         [Sub(SSS)] _SSSPower("SSS Power", Float) = 1
         [Sub(SSS)] _SSSScale("SSS Scale", Float) = 1
 
-        [Main(Terrain, _BLEND_TERRAIN_ON, off)] _TerrainGroup("Terrain Blend", Float) = 0
+        [Main(Terrain, _BLEND_TERRAIN_ON, off)] _BlendTerrain("Terrain Blend", Float) = 0
+        [SubToggle(Terrain,_USEGROSS)] _UseGross("Use Moss", Float) = 0
+        [Sub(Terrain)][NoScaleOffset] _MossBase("Moss Tex", 2D) = "white" {}
+        [Sub(Terrain)] _MossUV("Moss UV", Vector) = (1,1,0,0)
         [Sub(Terrain)] _BlendRange("Blend Range", Vector) = (0,0.2,0,0)
         [Sub(Terrain)] _TerrainBrightness("Terrain Brightness", Float) = 1
 
@@ -95,11 +106,6 @@ Shader "URP/VgSystem/StylizedPlant"
         [HideInInspector] _GUIStencilIndex("GUI Stencil Index", Float) = 101
     }
 
-    HLSLINCLUDE
-        #include "Assets/Shaders/HLSL/VgSystem/VgVertexInput.hlsl"
-        #include "Assets/Shaders/HLSL/VgSystem/VgVertexWind.hlsl"
-    ENDHLSL
-
     SubShader
     {
         Tags
@@ -110,6 +116,8 @@ Shader "URP/VgSystem/StylizedPlant"
             "UniversalMaterialType" = "Lit"
             "IgnoreProjector" = "True"
         }
+
+        LOD 300
 
         Pass
         {
@@ -131,14 +139,16 @@ Shader "URP/VgSystem/StylizedPlant"
 
             HLSLPROGRAM
             #pragma target 4.5
-            #pragma vertex vert
-            #pragma fragment frag
+            #pragma vertex LitPassVertex
+            #pragma fragment LitPassFragment
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma shader_feature_local_fragment _SPECULARHIGHLIGHTS
             #pragma shader_feature_local_fragment _ENVIRONMENTREFLECTIONS
             #pragma shader_feature_local_vertex _WIND_ON
             #pragma shader_feature_local_vertex _CIRCE_WIND_ON
-            #pragma shader_feature_local_fragment _BLEND_TERRAIN_ON
+            #pragma shader_feature_fragment _BLEND_TERRAIN_ON
+            #pragma shader_feature_fragment _TERRAIN_BLEND_BAKED
+            #pragma shader_feature_local_fragment _USEGROSS
             #pragma shader_feature_local_fragment _NRM_ON
             #pragma shader_feature_local_fragment _EMISSION_ON
             #pragma shader_feature_local_fragment _SSS_ON
@@ -155,8 +165,8 @@ Shader "URP/VgSystem/StylizedPlant"
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-            #include "Assets/Shaders/HLSL/VgSystem/Leaf/LeafIndirectInput.hlsl"
-            #include "Assets/Shaders/HLSL/VgSystem/Leaf/LeafIndirectForword.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Plant/PlantIndirectInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Plant/PlantIndirectForward.hlsl"
             ENDHLSL
         }
 
@@ -181,8 +191,8 @@ Shader "URP/VgSystem/StylizedPlant"
             #pragma multi_compile _ LOD_FADE_CROSSFADE
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-            #include "Assets/Shaders/HLSL/VgSystem/Leaf/LeafIndirectInput.hlsl"
-            #include "Assets/Shaders/HLSL/VgSystem/Leaf/LeafDepthOnlyPass.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Plant/PlantIndirectInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Plant/PlantDepthOnlyPass.hlsl"
             ENDHLSL
         }
 
@@ -208,8 +218,8 @@ Shader "URP/VgSystem/StylizedPlant"
             #pragma multi_compile _ LOD_FADE_CROSSFADE
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-            #include "Assets/Shaders/HLSL/VgSystem/Leaf/LeafIndirectInput.hlsl"
-            #include "Assets/Shaders/HLSL/VgSystem/Leaf/LeafDepthNormalsPass.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Plant/PlantIndirectInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Plant/PlantDepthNormalsPass.hlsl"
             ENDHLSL
         }
 
@@ -235,8 +245,8 @@ Shader "URP/VgSystem/StylizedPlant"
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-            #include "Assets/Shaders/HLSL/VgSystem/Leaf/LeafIndirectInput.hlsl"
-            #include "Assets/Shaders/HLSL/VgSystem/Leaf/LeafShadowCasterPass.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Plant/PlantIndirectInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Plant/PlantShadowCasterPass.hlsl"
             ENDHLSL
         }
     }

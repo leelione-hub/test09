@@ -45,7 +45,7 @@ Shader "URP/VgSystem/StylizedGrass"
         [Sub(Wind)] _WindForce("Wind Force", Range(0, 1)) = 1
         [Sub(Wind)] _WindWavesScale("Wind Waves Scale", Range(0, 1)) = 0
 
-        [Main(WindLine, _WINDLINE_ON, off)] _WindLine("Wind Line", Float) = 0
+        [Main(WindLine, _WINDLINE_ON)] _WindLine("Wind Line", Float) = 0
         [Sub(WindLine)][NoScaleOffset] _WindLineTex("Wind Line Tex", 2D) = "white" {}
         [Sub(WindLine)] _WindColorIntensity("Wind Color Intensity", Float) = 1
         [Sub(WindLine)] _WindLineDirection("Wind Line Direction", Range(0, 360)) = 0
@@ -107,12 +107,6 @@ Shader "URP/VgSystem/StylizedGrass"
         [HideInInspector] _GUIStencilIndex("GUI Stencil Index", Float) = 101
     }
 
-    HLSLINCLUDE
-        #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassInput.hlsl"
-        #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassForward.hlsl"
-        #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassDepthPasses.hlsl"
-    ENDHLSL
-
     SubShader
     {
         Tags
@@ -162,12 +156,14 @@ Shader "URP/VgSystem/StylizedGrass"
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma shader_feature_local_fragment _SPECULARHIGHLIGHTS_OFF
             #pragma shader_feature_local_fragment _ENVIRONMENTREFLECTIONS_OFF
-            #pragma shader_feature_local_fragment _BLEND_TERRAIN_ON
-            #pragma shader_feature_local_fragment _TERRAIN_BLEND_BAKED
+            #pragma shader_feature_fragment _BLEND_TERRAIN_ON
+            #pragma shader_feature_fragment _TERRAIN_BLEND_BAKED
             #pragma shader_feature_local_fragment _USEGROSS
             #pragma shader_feature_local_vertex _WINDLINE_ON
             #pragma shader_feature_local_fragment _LAMBERT_HALFLAMBERT
             #pragma shader_feature_local_fragment _SSAO
+            #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassForwardPass.hlsl"
             ENDHLSL
         }
 
@@ -197,6 +193,8 @@ Shader "URP/VgSystem/StylizedGrass"
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma shader_feature_local_vertex _WINDLINE_ON
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassDepthOnlyPass.hlsl"
             ENDHLSL
         }
 
@@ -226,6 +224,8 @@ Shader "URP/VgSystem/StylizedGrass"
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma shader_feature_local_vertex _WINDLINE_ON
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassDepthNormalsPass.hlsl"
             ENDHLSL
         }
 
@@ -249,6 +249,8 @@ Shader "URP/VgSystem/StylizedGrass"
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma shader_feature_local_vertex _WINDLINE_ON
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassInput.hlsl"
+            #include "Assets/Shaders/HLSL/VgSystem/Grass/GrassShadowCasterPass.hlsl"
             ENDHLSL
         }
     }

@@ -24,7 +24,7 @@ GrassDepthVaryings DepthOnlyVertex(GrassAttributes input)
 
 half DepthOnlyFragment(GrassDepthVaryings input) : SV_Target
 {
-    Alpha(SampleAlbedoAlpha(input.uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap)).a, _BaseColor, _Cutoff);
+    VgAlpha(VgSampleAlbedoAlpha(input.uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap)).a, _BaseColor, _Cutoff);
     return input.positionCS.z;
 }
 
@@ -35,7 +35,7 @@ GrassDepthVaryings DepthNormalsVertex(GrassAttributes input)
 
 half4 DepthNormalsFragment(GrassDepthVaryings input) : SV_Target
 {
-    Alpha(SampleAlbedoAlpha(input.uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap)).a, _BaseColor, _Cutoff);
+    VgAlpha(VgSampleAlbedoAlpha(input.uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap)).a, _BaseColor, _Cutoff);
     return half4(normalize(input.normalWS), 0.0);
 }
 
@@ -72,7 +72,7 @@ GrassShadowVaryings ShadowPassVertex(GrassAttributes input)
 
 half4 ShadowPassFragment(GrassShadowVaryings input) : SV_Target
 {
-    Alpha(SampleAlbedoAlpha(input.uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap)).a, _BaseColor, _Cutoff);
+    VgAlpha(VgSampleAlbedoAlpha(input.uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap)).a, _BaseColor, _Cutoff);
     return 0;
 }
 

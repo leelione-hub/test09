@@ -58,8 +58,8 @@
             Cull[_Cull]
             
             HLSLPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
+            #pragma vertex LitPassVertex
+            #pragma fragment LitPassFragment
 
             #pragma shader_feature_local_fragment _ALPHATEST_ON
 
