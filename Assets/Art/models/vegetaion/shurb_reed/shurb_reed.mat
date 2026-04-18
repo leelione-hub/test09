@@ -21,18 +21,23 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: shurb_reed
-  m_Shader: {fileID: 4800000, guid: c5c98c10c52a44ce859e00fee99b4c2d, type: 3}
+  m_Shader: {fileID: 4800000, guid: 57a9641cea9e96d4ea0ee002a0057d93, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords:
+  m_ValidKeywords:
   - _ALPHATEST_ON
-  - _ENVIRONMENTREFLECTIONS_OFF
+  - _ENVIRONMENTREFLECTIONS
+  - _SPECULARHIGHLIGHTS
+  - _SSS_ON
+  - _WIND_ON
+  m_InvalidKeywords:
+  - _HIDECROSS_ON
+  - _LAMBERT_LAMBERT
   - _ZWRITE_ON
   m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
+  m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: 2000
+  m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
   m_LockedProperties: 
@@ -71,6 +76,14 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _MossBase:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NRMTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -80,6 +93,10 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _SpecGlossMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _WindLineTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
@@ -97,50 +114,113 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AlphaClip: 0
+    - _AOStrength: 0
+    - _Alpha: 1
+    - _AlphaClip: 1
     - _AlphaTest: 1
     - _AlphaToMask: 0
+    - _BackBrightness: 0
+    - _BackFaceShadowInt: 1
+    - _BaseGroup: 0
+    - _BendSpeed: 1
+    - _BendStrength: 1
+    - _BendWait: 1
     - _Blend: 0
     - _BlendMode: 0
+    - _BlendMode1: 0
     - _BlendModePreserveSpecular: 1
+    - _BlendTerrain: 0
     - _BoundsRadius: 50
     - _BumpScale: 1
+    - _CirceWindGroup: 0
+    - _CirceWindSpeed: 1
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
     - _ColorMask: 15
     - _Cull: 0
     - _Cutoff: 0.5
+    - _Cutoff1: 0.5
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _DstBlendAlpha: 0
+    - _EdgeBrightIntensity: 1
+    - _EdgeBrightScale: 3.19
+    - _EmissionGroup: 0
+    - _EmissiveIntensity: 1
     - _EnvironmentReflections: 1
     - _EnvironmentReflections_Off: 0
+    - _GIInt: 3.45
+    - _GUIStencilIndex: 101
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
+    - _GraphicDraw: 0
+    - _InteractionGroup: 0
+    - _InteractiveRange: 0
+    - _InteractiveStrength: 0
+    - _Lambert: 0
+    - _LeafStrength: 0.1
+    - _LightingGroup: 1
+    - _MainLightInt: 0.73
     - _Metallic: 0
+    - _NRMGroup: 0
+    - _NoisePower: 1
+    - _NormalBack: 1
     - _OcclusionStrength: 1
     - _Parallax: 0.005
+    - _Preset1Group: 0
     - _PresetGroup: 0
+    - _PresetGroup1: 0
     - _QueueOffset: 0
     - _ReceiveShadows: 1
+    - _Roughness: 0.5
+    - _RoughnessMin: 0
+    - _SSAO: 0
+    - _SSSDistortion: 0.24
+    - _SSSGroup: 1
+    - _SSSPower: 1
+    - _SSSScale: 1
+    - _ShadowStrength: 0.685
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Stencil: 0
+    - _StencilComp: 8
+    - _StencilOp: 0
+    - _StencilReadMask: 255
     - _StencilWithDescription: 0
+    - _StencilWriteMask: 255
     - _Surface: 0
-    - _WindStrength: 0.5
+    - _TerrainBrightness: 1
+    - _TerrainGroup: 1
+    - _UseGross: 0
+    - _WindColorIntensity: 1
+    - _WindGroup: 1
+    - _WindJitter: 0.5
+    - _WindLindSpeed: 3
+    - _WindLine: 0
+    - _WindLineDirection: 0
+    - _WindLineScale: 1
+    - _WindLineStrength: 5
+    - _WindNoiseSize: 5
+    - _WindSpeed: 1
+    - _WindStrength: 0.05
     - _WorkflowMode: 1
     - _ZTest: 4
     - _ZWrite: 1
     - graphicDraw: 0
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
-    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _BlendRange: {r: 0, g: 0.2, b: 0, a: 0}
+    - _CirceWindDirection: {r: 10, g: 0, b: 0, a: 0}
+    - _Color: {r: 0.72327036, g: 0.7028004, b: 0.7028004, a: 1}
+    - _EdgeBrightColor: {r: 0.9056604, g: 0.9056604, b: 0.9056604, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _MossUV: {r: 1, g: 1, b: 0, a: 0}
+    - _SSSColor: {r: 2.1185474, g: 2.1185474, b: 2.1185474, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
+    - _WindDirection: {r: 1, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []

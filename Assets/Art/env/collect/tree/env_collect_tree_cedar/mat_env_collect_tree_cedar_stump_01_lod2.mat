@@ -1,0 +1,153 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: mat_env_collect_tree_cedar_stump_01_lod2
+  m_Shader: {fileID: 4800000, guid: 92dfd361a92e70e4a9d4e9c6ec1ee66d, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _LAMBERT_HALFLAMBERT
+  - _NRM_ON
+  m_InvalidKeywords:
+  - _BLENDTERRAIN_ON
+  - _BLEND_TERRAIN_ON
+  - _SSAO
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 1
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _AOTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 78000cffb51709b4cae3901081cfc8a8, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _EmissionMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 2800000, guid: 78000cffb51709b4cae3901081cfc8a8, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MossHeightTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MossNRM:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MossTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NRMTex:
+        m_Texture: {fileID: 2800000, guid: 0891c6bdada5c7a47ae6a81d72f6dc63, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _OverlayMask:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _OverlayTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AOIntensity: 1
+    - _AOLevels: 1
+    - _AOScale: 0
+    - _AOStrength: 1
+    - _Alpha: 1
+    - _AlphaClip: 0
+    - _AlphaCutoff: 0.5
+    - _AlphaToMask: 0
+    - _BackBrightIntensity: 0.622
+    - _BackBrightScale: 1.2
+    - _BackBrightness: -0.2
+    - _BackTitle: 0
+    - _Blend: 0
+    - _BlendIntensity: 0.5
+    - _BlendMode: 0
+    - _BlendModePreserveSpecular: 1
+    - _BlendScale: 10
+    - _BlendTitle: 0
+    - _BumpScale: 1
+    - _CastShadows: 1
+    - _ClearCoatMask: 0
+    - _ClearCoatSmoothness: 0
+    - _Clipping: 0
+    - _Cull: 2
+    - _Cutoff: 0.5
+    - _Distance: 3.11
+    - _DstBlend: 0
+    - _DstBlendAlpha: 0
+    - _EmissiveIntensity: 1
+    - _EnvironmentReflections: 1
+    - _FallOff: 0
+    - _GUIStencilIndex: 101
+    - _Height: 1
+    - _HightIntensity: 1.5
+    - _HitHeight: 8
+    - _Lambert: 1
+    - _Metalic: 0
+    - _Metallic: 0
+    - _MossHeightMax: 0.5
+    - _MossHeightMin: 0.5
+    - _MossNRMIntensity: 1
+    - _NormalIntensity: 1
+    - _OverlayRoughness: 1
+    - _QueueOffset: 129
+    - _ReceiveShadows: 1
+    - _Roughness: 1
+    - _RoughnessMax: 1
+    - _RoughnessMin: 0
+    - _SSAO: 1
+    - _ShadowCull: 2
+    - _ShadowStrength: 0.7
+    - _ShakeTitle: 0
+    - _SpecularHighlights: 1
+    - _SrcBlend: 1
+    - _SrcBlendAlpha: 1
+    - _Stencil: 101
+    - _StencilComp: 8
+    - _StencilOp: 2
+    - _StencilReadMask: 101
+    - _StencilWriteMask: 101
+    - _Surface: 0
+    - _TerrainBrightness: 0.77
+    - _WorbingRange: 0.05
+    - _WorblingDistance: 1
+    - _ZTest: 4
+    - _ZWrite: 1
+    - _giIntensityInShadow: 1
+    - _mossHeightTex: 0
+    m_Colors:
+    - _AOColor: {r: 0.4339623, g: 0.39916342, b: 0.3295657, a: 1}
+    - _BackBrightColor: {r: 0.8679245, g: 0.60140616, b: 0.48718405, a: 0}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _BasecolorTint: {r: 1, g: 1, b: 1, a: 1}
+    - _BlendRange: {r: -0.13, g: 0.3, b: 0, a: 0}
+    - _Direction: {r: 1, g: 0, b: 0, a: 0}
+    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _OverlayColor1: {r: 0, g: 0, b: 0, a: 0}
+    - _OverlayColor2: {r: 0, g: 0, b: 0, a: 0}
+    - _OverlayColor3: {r: 0, g: 0, b: 0, a: 0}
+    - _TilingOffset: {r: 1, g: 1, b: 0, a: 0}
+  m_BuildTextureStacks: []

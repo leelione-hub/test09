@@ -517,90 +517,7 @@ namespace VegetationSystem
 
         private static void ApplyTerrainBlendProperties(Material material, Terrain terrain)
         {
-            if (material == null || terrain == null || terrain.terrainData == null)
-            {
-                return;
-            }
-
-            if (!material.HasProperty(TerrainTransformDataId))
-            {
-                return;
-            }
-
-            TerrainData terrainData = terrain.terrainData;
-            Vector3 terrainPosition = terrain.transform.position;
-            Vector3 terrainSize = terrainData.size;
-            material.SetVector(
-                TerrainTransformDataId,
-                new Vector4(
-                    terrainPosition.x,
-                    terrainPosition.z,
-                    Mathf.Max(terrainSize.x, 0.0001f),
-                    Mathf.Max(terrainSize.z, 0.0001f)));
-
-            TerrainLayer[] terrainLayers = terrainData.terrainLayers;
-            material.SetFloat(TerrainRoughnessId, CalculateTerrainRoughness(terrainLayers));
-
-            Texture bakedBlendTexture = null;
-            var terrainBlendData = terrain.GetComponent<VegetationTerrainBlendData>();
-            if (terrainBlendData != null)
-            {
-                bakedBlendTexture = terrainBlendData.BakedBlendTexture;
-            }
-
-            if (bakedBlendTexture != null)
-            {
-                material.SetTexture(TerrainColorId, bakedBlendTexture);
-                material.EnableKeyword(TerrainBlendBakedKeyword);
-            }
-            else
-            {
-                material.DisableKeyword(TerrainBlendBakedKeyword);
-            }
-
-            Texture2D[] alphaMaps = terrainData.alphamapTextures;
-            if (material.HasProperty(ControlId) && alphaMaps != null && alphaMaps.Length > 0 && alphaMaps[0] != null)
-            {
-                material.SetTexture(ControlId, alphaMaps[0]);
-            }
-
-            if (material.HasProperty(TerrainColorId))
-            {
-                Texture terrainColor = null;
-                if (bakedBlendTexture != null)
-                {
-                    terrainColor = bakedBlendTexture;
-                }
-                else if (terrainLayers != null && terrainLayers.Length > 0 && terrainLayers[0] != null)
-                {
-                    terrainColor = terrainLayers[0].diffuseTexture;
-                }
-
-                material.SetTexture(TerrainColorId, terrainColor != null ? terrainColor : Texture2D.whiteTexture);
-            }
-
-            for (int i = 0; i < 4; i++)
-            {
-                TerrainLayer layer = terrainLayers != null && i < terrainLayers.Length ? terrainLayers[i] : null;
-
-                if (material.HasProperty(SplatTextureIds[i]))
-                {
-                    Texture diffuseTexture = layer != null && layer.diffuseTexture != null
-                        ? layer.diffuseTexture
-                        : Texture2D.whiteTexture;
-                    material.SetTexture(SplatTextureIds[i], diffuseTexture);
-                }
-
-                if (material.HasProperty(SplatStIds[i]))
-                {
-                    material.SetVector(SplatStIds[i], CalculateSplatSt(layer, terrainSize));
-                }
-
-                if (material.HasProperty(DiffuseRemapScaleIds[i]))
-                {
-                    material.SetVector(DiffuseRemapScaleIds[i], CalculateDiffuseRemapScale(layer));
-                }
-            }
+            VegetationTerrainBlendData.ApplyTerrainBlendProperties(material, terrain);
         }
 
         private static float CalculateTerrainRoughness(TerrainLayer[] terrainLayers)
@@ -727,6 +644,8 @@ namespace VegetationSystem
         
         public void InitVegetationRenderData(TerrainTreeDatas treeDatas, Vector3 terrainSize, Terrain terrain = null, int renderLayer = -1)
         {
+            VegetationTerrainBlendData.ApplyTerrainBlendGlobals(terrain);
+
             Dictionary<int, List<GrassInstanceData>> dicInstanceDatas = new Dictionary<int, List<GrassInstanceData>>();
             Dictionary<int, List<ChunkInfoBuffer>>   dicChunkInfoBuffer = new Dictionary<int, List<ChunkInfoBuffer>>();
             Dictionary<int, int>                     dicSingleChunkMaxCount = new Dictionary<int, int>();
@@ -954,12 +873,23 @@ namespace VegetationSystem
                         visibleChunkInfos.Add(chunk);
                     }
                 }
-                data.visibleChunkInfos  = visibleChunkInfos;
-                data.visibleChunkCount  = visibleChunkInfos.Count;
-                data.VisibleChunkBuffer.Dispose();
-                data.VisibleChunkBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, data.visibleChunkCount,
-                    chunkinfoStride);
-                data.VisibleChunkBuffer.SetData(data.visibleChunkInfos);
+                data.visibleChunkInfos = new List<ChunkInfoBuffer>(visibleChunkInfos);
+                data.visibleChunkCount = data.visibleChunkInfos.Count;
+
+                data.VisibleChunkBuffer?.Dispose();
+
+                int bufferCount = Mathf.Max(1, data.visibleChunkCount);
+                data.VisibleChunkBuffer = new GraphicsBuffer(
+                    GraphicsBuffer.Target.Structured,
+                    bufferCount,
+                    chunkinfoStride
+                );
+
+                if (data.visibleChunkCount > 0)
+                {
+                    data.VisibleChunkBuffer.SetData(data.visibleChunkInfos);
+                }
+
                 vegetationRenderDataList[i] = data;
             }
         }

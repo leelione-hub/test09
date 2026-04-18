@@ -67,7 +67,8 @@ namespace VegetationSystem
         public virtual void InitData()
         {
             if (chunkDatas == null) return;
-            treeDatas = JsonUtility.FromJson<TerrainTreeDatas>(chunkDatas.text);
+            treeDatas = TerrainTreeSerialization.LoadChunkDataFromTextAsset(chunkDatas);
+            if (treeDatas == null) return;
             
             vgRender  = new VgRender();
             vgRender.InitVegetationRenderData(treeDatas, terrain.terrainData.size, terrain, gameObject.layer);

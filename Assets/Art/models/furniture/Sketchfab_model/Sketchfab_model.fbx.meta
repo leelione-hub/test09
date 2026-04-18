@@ -3,7 +3,47 @@ guid: 5c965e25347ff5b45856f09932d2e172
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Glass
+    second: {fileID: 2100000, guid: 42e858dd5ff11614991984ce6e57329b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Emit
+    second: {fileID: 2100000, guid: d52f1a555a153ae4ea074b00245005c7, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Material.001
+    second: {fileID: 2100000, guid: b9a2f294dd761c24ab8074d54bd60034, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Material.002
+    second: {fileID: 2100000, guid: 02fc9f197dd6d134681c835908b75f7c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Material.003
+    second: {fileID: 2100000, guid: 5014a12c0fa2e2b49a2e1c38dba53c22, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Material.004
+    second: {fileID: 2100000, guid: 7fcd60d07865390469e614a3e5086b21, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: crate_1_info
+    second: {fileID: 2100000, guid: 7219f69b70a0f0e4096cea2ecf486afb, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: crate_1_normal
+    second: {fileID: 2100000, guid: 43c49b71297cb204c81b1e0f9235a4e2, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

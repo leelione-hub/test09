@@ -2,6 +2,7 @@
 #define VG_STANDARD_LIT_FORWARD_PASS_INCLUDED
 
 #include "Assets/Shaders/HLSL/Lighting/CustomLighting.hlsl"
+#include "Assets/Shaders/HLSL/Lighting/ScreenSpaceReflection.hlsl"
 #include "Assets/Shaders/HLSL/VgSystem/StandardLit/StandardLitInput.hlsl"
 
 void InitializeInputData(StandardLitVaryings input, half3 normalTS, out InputData inputData)
@@ -63,6 +64,31 @@ void LitPassFragment(
 
     #if defined(_SSAO)
     surfaceData.occlusion *= lerp(1.0h, SampleAmbientOcclusion(inputData.normalizedScreenSpaceUV), _AOStrength);
+    #endif
+
+    #if defined(_SSR_ON)
+    half ndv = saturate(dot(inputData.normalWS, inputData.viewDirectionWS));
+    half fresnelMask = Pow4(1.0h - ndv);
+    half smoothnessMask = saturate(surfaceData.smoothness);
+    half4 ssrReflection = VgSampleScreenSpaceReflection(
+        input.positionWS,
+        inputData.normalWS,
+        inputData.viewDirectionWS,
+        fresnelMask,
+        smoothnessMask,
+        _SSRIntensity,
+        _SSRBlend,
+        _SSRDistortion,
+        _SSRMaskByFresnel,
+        _SSRMaskBySmoothness,
+        _SSRValidThreshold,
+        _SSRStepSize,
+        _SSRMaxDistance,
+        _SSRThickness,
+        _SSREdgeFade,
+        _SSRRayStartBias,
+        _SSRMaxSteps);
+    surfaceData.emission += ssrReflection.rgb * ssrReflection.a;
     #endif
 
     SurfaceDataExt surfaceDataExt;

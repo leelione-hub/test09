@@ -116,8 +116,7 @@ namespace VegetationSystem
             {
                 return null;
             }
-            string json = grassJson.text;
-            TerrainTreeData treedata = JsonUtility.FromJson<TerrainTreeData>(json);
+            TerrainTreeData treedata = TerrainTreeSerialization.LoadTreeDataFromTextAsset(grassJson);
             return treedata;
         }
 

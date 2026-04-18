@@ -1181,6 +1181,10 @@ namespace UnityEngine.Rendering.Universal
         /// <summary> Keyword used for Neutral Tonemapping. </summary>
         public const string TonemapNeutral = "_TONEMAP_NEUTRAL";
 
+        public const string TonemapNAES = "_TONEMAP_NAES";
+
+        public const string TonemapLog2 = "_TONEMAP_LOG2";
+
         /// <summary> Keyword used for Film Grain. </summary>
         public const string FilmGrain = "_FILM_GRAIN";
 

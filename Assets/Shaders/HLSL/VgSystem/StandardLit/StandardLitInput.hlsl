@@ -4,6 +4,7 @@
 #include "Assets/Shaders/HLSL/VgSystem/VgVertexInput.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 #include "Assets/Shaders/HLSL/VgSystem/ShaderLibrary/SurfaceInput.hlsl"
 #include "Assets/Shaders/HLSL/VgSystem/ShaderLibrary/Custom/BlendTerrain.hlsl"
 #if defined(LOD_FADE_CROSSFADE)
@@ -42,6 +43,18 @@ CBUFFER_START(UnityPerMaterial)
     float _ShadowStrength;
     float _AOStrength;
     float _CorssFade;
+    float _SSRIntensity;
+    float _SSRBlend;
+    float _SSRDistortion;
+    float _SSRMaskByFresnel;
+    float _SSRMaskBySmoothness;
+    float _SSRValidThreshold;
+    float _SSRStepSize;
+    float _SSRMaxDistance;
+    float _SSRThickness;
+    float _SSREdgeFade;
+    float _SSRRayStartBias;
+    float _SSRMaxSteps;
 CBUFFER_END
 
 TEXTURE2D(_BaseMap);          SAMPLER(sampler_BaseMap);

@@ -1,0 +1,157 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: mat_env_collect_tree_cedar_03_01a
+  m_Shader: {fileID: 4800000, guid: face9df94c262a148904e138df48cc1b, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _BLEND_TERRAIN_ON
+  - _LAMBERT_HALFLAMBERT
+  - _NRM_ON
+  - _SPECULARHIGHLIGHTS_OFF
+  - _SSAO
+  m_InvalidKeywords:
+  - _BLENDTERRAIN_ON
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 1
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _AOTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 6eae7392276a88b469d31840e9a0a735, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _EmissionMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 2800000, guid: fcc8003bc064d4e4eadec1c4007d704e, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MossHeightTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MossNRM:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MossTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NRMTex:
+        m_Texture: {fileID: 2800000, guid: b2d316f67122aa84d81ee42ef860df49, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _OverlayMask:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _OverlayTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AOIntensity: 1
+    - _AOLevels: 1
+    - _AOScale: 0.864
+    - _AOStrength: 1
+    - _Alpha: 1
+    - _AlphaClip: 0
+    - _AlphaCutoff: 0.5
+    - _AlphaToMask: 0
+    - _BackBrightIntensity: 0.622
+    - _BackBrightScale: 1.2
+    - _BackBrightness: 0
+    - _BackTitle: 0
+    - _Blend: 0
+    - _BlendIntensity: 0.5
+    - _BlendMode: 0
+    - _BlendModePreserveSpecular: 1
+    - _BlendScale: 10
+    - _BlendTitle: 0
+    - _BumpScale: 0.47
+    - _CastShadows: 1
+    - _ClearCoatMask: 0
+    - _ClearCoatSmoothness: 0
+    - _Clipping: 0
+    - _CorssFade: 0
+    - _CrossFadeTitle: 0
+    - _Cull: 2
+    - _Cutoff: 0.5
+    - _Distance: 3.11
+    - _DstBlend: 0
+    - _DstBlendAlpha: 0
+    - _EmissiveIntensity: 1
+    - _EnvironmentReflections: 1
+    - _FallOff: 0.5
+    - _GUIStencilIndex: 101
+    - _Height: 1
+    - _HightIntensity: 1.5
+    - _HitHeight: 8
+    - _Lambert: 1
+    - _Metalic: 0
+    - _Metallic: 0
+    - _MossHeightMax: 0.5
+    - _MossHeightMin: 0.5
+    - _MossNRMIntensity: 1
+    - _NormalIntensity: 1
+    - _OverlayRoughness: 1
+    - _QueueOffset: 129
+    - _ReceiveShadows: 1
+    - _Roughness: 1
+    - _RoughnessMax: 1
+    - _RoughnessMin: 0.066
+    - _SSAO: 1
+    - _ShadowCull: 2
+    - _ShadowStrength: 0.75
+    - _ShakeTitle: 0
+    - _SpecularHighlights: 0
+    - _SrcBlend: 1
+    - _SrcBlendAlpha: 1
+    - _Stencil: 101
+    - _StencilComp: 8
+    - _StencilOp: 2
+    - _StencilReadMask: 101
+    - _StencilWriteMask: 101
+    - _Surface: 0
+    - _TerrainBrightness: 1
+    - _WorbingRange: 0.05
+    - _WorblingDistance: 1
+    - _ZTest: 4
+    - _ZWrite: 1
+    - _giIntensityInShadow: 1
+    - _mossHeightTex: 0
+    m_Colors:
+    - _AOColor: {r: 0.2830189, g: 0.24879418, b: 0.17755431, a: 1}
+    - _BackBrightColor: {r: 0.5943396, g: 0.23913753, b: 0.08690815, a: 0}
+    - _BaseColor: {r: 1, g: 0.92443895, b: 0.72641504, a: 1}
+    - _BasecolorTint: {r: 1, g: 1, b: 1, a: 1}
+    - _BlendRange: {r: -0.41, g: 0.4, b: 0, a: 0}
+    - _Direction: {r: 1, g: 0, b: 0, a: 0}
+    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _OverlayColor1: {r: 0, g: 0, b: 0, a: 0}
+    - _OverlayColor2: {r: 0, g: 0, b: 0, a: 0}
+    - _OverlayColor3: {r: 0, g: 0, b: 0, a: 0}
+    - _SimpleTerrainColor: {r: 1, g: 1, b: 1, a: 1}
+    - _TilingOffset: {r: 1, g: 1, b: 0, a: 0}
+  m_BuildTextureStacks: []

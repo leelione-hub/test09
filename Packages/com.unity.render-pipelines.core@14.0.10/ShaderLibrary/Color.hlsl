@@ -560,6 +560,21 @@ real3 NeutralTonemap(real3 x)
     return x;
 }
 
+real3 NAESTonemap(real3 x)
+{
+    x = (1.36 * x + 0.047) * x / ((0.93 * x + 0.56) * x + 0.14);
+    return x;
+}
+
+real3 Log2Tonemap(real3 x)
+{
+    real3 logcolor = log2(max(x,0.00001));
+    real3 compressed = exp2(logcolor * 0.33) * 1.4938 - 0.7;
+    real3 tonemapped = lerp(x,compressed,step(0.3,x*1.0));
+
+    return saturate(tonemapped);
+}
+
 // Raw, unoptimized version of John Hable's artist-friendly tone curve
 // Input is linear RGB
 real EvalCustomSegment(real x, real4 segmentA, real2 segmentB)

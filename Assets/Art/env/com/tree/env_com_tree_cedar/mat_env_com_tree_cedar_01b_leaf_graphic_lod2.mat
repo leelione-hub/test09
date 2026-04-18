@@ -8,16 +8,21 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: mat_env_com_tree_cedar_01b_leaf_graphic_lod2
-  m_Shader: {fileID: 4800000, guid: 2e90ce6dcc904dc9a7a552e3e6931a03, type: 3}
+  m_Shader: {fileID: 4800000, guid: dee7850a0d0d1d948a8711a2828bef62, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - _ALPHATEST_ON
+  - _ENVIRONMENTREFLECTIONS
+  - _LAMBERT_HALFLAMBERT
+  - _SPECULARHIGHLIGHTS
+  - _SSAO
   m_InvalidKeywords:
   - _ZWRITE_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 1
-  m_CustomRenderQueue: 2450
+  m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
   m_LockedProperties: 
@@ -61,6 +66,10 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _LeavesRampMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
@@ -114,6 +123,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AOScale: 0
     - _AOStrength: 1
     - _AOTint: 1
     - _Alpha: 1
@@ -124,6 +134,9 @@ Material:
     - _AlphaToMask: 1
     - _BackBrightness: -0.6
     - _BackFaceShadowInt: 1
+    - _BackOffset: 0.5
+    - _BackScale: 1
+    - _BaseGroup: 1
     - _BendSpeed: 1
     - _BendStrength: 0.5
     - _BendWait: 1
@@ -132,6 +145,7 @@ Material:
     - _BlendModePreserveSpecular: 1
     - _BlendTitle: 0
     - _BoundsRadius: 50
+    - _Brightness: 1
     - _BumpScale: 0.1
     - _CastShadows: 1
     - _CirceWindSpeed: 0.1
@@ -162,12 +176,15 @@ Material:
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
+    - _GraphicDraw: 0
     - _GrowTitle: 0
     - _GrowUp: 1
     - _Height: 1
     - _HelpBox_CapsuleAO: 0
+    - _HideCross: 1
     - _HighLightIntensity: 2
     - _HighLightScale: 20
+    - _InteractionGroup: 0
     - _InteractiveRange: 0.02
     - _InteractiveStrength: 0.05
     - _Lambert: 1
@@ -178,11 +195,13 @@ Material:
     - _MetallicTint: 0
     - _NoisePower: 1
     - _NormalBack: 1
+    - _NormalBackIntensity: 0
     - _NormalIntensity: 1
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _PresetGroup: 0
     - _QueueOffset: 0
+    - _RampCount: 1
     - _ReceiveShadows: 1
     - _Roughness: 0.82
     - _RoughnessMax: 1
@@ -191,11 +210,13 @@ Material:
     - _SSAO: 1
     - _SSSCurvature: 0.6
     - _SSSDistortion: 1
+    - _SSSGroup: 0
     - _SSSPower: 1
     - _SSSScale: 1
     - _SSSTitle: 0
     - _SSSTonemapping: 0.85
     - _SecondScale: 0
+    - _ShadingGroup: 0
     - _ShadowAlphaClipping: 0
     - _ShadowAlphaCutoff: 0.5
     - _ShadowCull: 2
@@ -215,6 +236,9 @@ Material:
     - _StencilWriteMask: 255
     - _Surface: 0
     - _TerrainBrightness: 1
+    - _UpOffset: 1.5
+    - _UpScale: 2
+    - _UseNormalBack: 0
     - _UseTexture: 0
     - _WindDirection: 1
     - _WindGroup: 0
@@ -230,13 +254,15 @@ Material:
     - _roughChannel: 0
     - graphicDraw: 0
     m_Colors:
+    - _AOColor: {r: 0.06274508, g: 0.39607838, b: 0.054901943, a: 1}
     - _AlbedoTint: {r: 0.6226415, g: 0.6226415, b: 0.6226415, a: 1}
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _BasecolorTint: {r: 1, g: 1, b: 1, a: 0}
     - _BlendRange: {r: 0, g: 0, b: 0, a: 0}
     - _CirceWindDirection: {r: 0.1, g: 0.1, b: 0, a: 0}
-    - _Color: {r: 0.04997808, g: 0.24112102, b: 0.836478, a: 1}
+    - _Color: {r: 0.9311061, g: 0, b: 1, a: 1}
     - _CookieColor: {r: 0.21779987, g: 0.23556775, b: 0.26415086, a: 0}
+    - _DarkColor: {r: 0.13725486, g: 0.35686278, b: 0.090196066, a: 1}
     - _Direction: {r: 1, g: 1, b: 1, a: 0}
     - _EdgeBrightColor: {r: 1, g: 0.98480487, b: 0, a: 0}
     - _EmissionColor: {r: 0.5333304, g: 0.8018868, b: 0.5539886, a: 1}
@@ -244,6 +270,8 @@ Material:
     - _HighLightColor: {r: 1, g: 0.75, b: 0, a: 1}
     - _SSSColor: {r: 2, g: 2, b: 2, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
+    - _UpColor: {r: 0.33725488, g: 0.5490196, b: 0.07450979, a: 1}
+    - _UpDirection: {r: 0, g: 1, b: 0, a: 0}
     - _WindDirection: {r: 0.1, g: 0.1, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!114 &6126574846448523314

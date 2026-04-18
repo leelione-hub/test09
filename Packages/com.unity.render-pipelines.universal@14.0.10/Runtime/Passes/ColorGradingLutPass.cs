@@ -226,6 +226,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                     {
                         case TonemappingMode.Neutral: material.EnableKeyword(ShaderKeywordStrings.TonemapNeutral); break;
                         case TonemappingMode.ACES: material.EnableKeyword(allowColorGradingACESHDR ? ShaderKeywordStrings.TonemapACES : ShaderKeywordStrings.TonemapNeutral); break;
+                        case TonemappingMode.NAES: material.EnableKeyword(ShaderKeywordStrings.TonemapNAES); break;
+                        case TonemappingMode.LogTonemap2: material.EnableKeyword(ShaderKeywordStrings.TonemapLog2); break;
                         default: break; // None
                     }
 

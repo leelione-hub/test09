@@ -1,0 +1,113 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Custom_Cloud_BumpNoiseCloudInstanced 2
+  m_Shader: {fileID: 4800000, guid: d753e61a00298fb4f9afb69eb1d747ab, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords:
+  - _CLOUDCOLORMODE_CUSTOM
+  - _CULL_OFF
+  - _DEBUGMODE_OFF
+  - _ZTEST_LESSEQUAL
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BlueNoiseTex:
+        m_Texture: {fileID: 2800000, guid: 3de65fc85bdaaba42b58a4f5385d1a44, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DetailTex:
+        m_Texture: {fileID: 11700000, guid: 4e3e82b0a3cdab143933164dc8ff3ca2, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 11700000, guid: 8b4edee2c73672f46b957359aed448f0, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NoiseTex:
+        m_Texture: {fileID: 11700000, guid: 4e3e82b0a3cdab143933164dc8ff3ca2, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Alpha: 1
+    - _AmbientStrength: 0.35
+    - _BackSssPower: 2.5
+    - _BackSssStrength: 0.6
+    - _BackscatterPower: 3
+    - _BackscatterStrength: 1
+    - _BaseClip: 0.35
+    - _BlueNoiseStrength: 0.127
+    - _BrightFogIntensity: 0
+    - _ClipCurvePower: 1.6
+    - _ClipLayerStrength: 0.5
+    - _CloudColorMode: 0
+    - _Cull: 0
+    - _DarknessThreshold: 0.034
+    - _DebugMode: 0
+    - _DensityMultiplier: 43.5
+    - _DensitySoftness: 1.01
+    - _DensityThreshold: 0.788
+    - _DetailDensityMax: 3
+    - _DetailDensityMin: -1
+    - _Displacement: 1.42
+    - _DistanceFadeRange: 150
+    - _DistanceFadeStart: 50
+    - _DitherStrength: 0.04
+    - _EdgeFadePower: 1.5
+    - _FarNoiseScaleMul: 2
+    - _FarOffsetMul: 1.8
+    - _FinalAlpha: 0.95
+    - _HenyenLawIntensity: 3
+    - _LayerMaxOffset: 2
+    - _LightAbsorb: 0.1
+    - _LightDensityMultiplier: 1.33
+    - _LightStepSize: 0.1
+    - _LightingGroup: 0
+    - _NdotLPower: 1.6
+    - _NdotVPower: 1.8
+    - _NoiseScale: 12
+    - _NormalSampleOffset: 0.2
+    - _NormalStrength: 1
+    - _RenderGroup: 0
+    - _RimPower: 2
+    - _RimStrength: 0.3
+    - _SDFScale: 30
+    - _SDFStepMultiplier: 0.01
+    - _ScatteringConstant: 0.91
+    - _ShadowFogIntensity: 0
+    - _ShapeGroup: 1
+    - _StepSizeFar: 0.001
+    - _StepSizeNear: 0.143
+    - _Steps: 150
+    - _TessellationEndDistance: 60
+    - _TessellationFactor: 10
+    - _TessellationGroup: 0
+    - _TessellationMinFactor: 1
+    - _TessellationStartDistance: 8
+    - _Transmittance: 0.59
+    - _ZTest: 4
+    m_Colors:
+    - _BrightColor: {r: 2.9290485, g: 1.9728632, b: 1.3908373, a: 1}
+    - _DetailFlow: {r: 0.01, g: 0.01, b: 0, a: 0}
+    - _DetailTiling: {r: 1.5, g: 1.5, b: 1.5, a: 0}
+    - _DetailWeight: {r: 2, g: 2, b: -1, a: -1}
+    - _NoiseSpeed: {r: 0.02, g: 0.01, b: 0.02, a: 0}
+    - _SDFSizeMultiplier: {r: 1, g: 1, b: 1, a: 1}
+    - _ShadowColor: {r: 0.27672952, g: 0.15473035, b: 0.04612156, a: 1}
+  m_BuildTextureStacks: []

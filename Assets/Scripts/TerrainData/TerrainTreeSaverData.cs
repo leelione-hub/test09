@@ -13,6 +13,10 @@ public class TreeInstanceData
     public int prototypeIndex;
     public float rotation; // 只保存绕Y轴旋转
 
+    public TreeInstanceData()
+    {
+    }
+
     public TreeInstanceData(TreeInstance treeInstance)
     {
         position = treeInstance.position;

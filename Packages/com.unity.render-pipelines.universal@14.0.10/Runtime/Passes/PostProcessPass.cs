@@ -1310,9 +1310,11 @@ namespace UnityEngine.Rendering.Universal
             {
                 switch (m_Tonemapping.mode.value)
                 {
-                    case TonemappingMode.Neutral: material.EnableKeyword(ShaderKeywordStrings.TonemapNeutral); break;
-                    case TonemappingMode.ACES: material.EnableKeyword(ShaderKeywordStrings.TonemapACES); break;
-                    default: break; // None
+                    case TonemappingMode.Neutral:    material.EnableKeyword(ShaderKeywordStrings.TonemapNeutral); break;
+                    case TonemappingMode.ACES:       material.EnableKeyword(ShaderKeywordStrings.TonemapACES); break;
+                    case TonemappingMode.NAES:       material.EnableKeyword(ShaderKeywordStrings.TonemapNAES); break;
+                    case TonemappingMode.LogTonemap2: material.EnableKeyword(ShaderKeywordStrings.TonemapLog2); break;
+                    default:                         break; // None
                 }
             }
         }

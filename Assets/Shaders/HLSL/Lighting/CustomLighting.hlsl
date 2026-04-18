@@ -207,6 +207,11 @@ half4 UniversalFragmentPBR(InputData inputData,inout SurfaceData surfaceData, Su
     #if defined(_ADDITIONAL_LIGHTS)
     uint pixelLightCount = GetAdditionalLightsCount();
 
+    // Additional lights must use the real attenuation path. If we keep the
+    // material shadowStrength boost here, Forward+ point lights accumulate
+    // with visibly incorrect brightness.
+    brdfDataExt.shadowStrength = 1.0h;
+
     #if USE_FORWARD_PLUS
     for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
     {

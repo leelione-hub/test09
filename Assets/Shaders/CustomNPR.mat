@@ -1,0 +1,95 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: CustomNPR
+  m_Shader: {fileID: 4800000, guid: 410f8e0176754ae4780b2e91984c2861, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _BODY
+  m_InvalidKeywords:
+  - _SPECULAR_ON
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FaceShadowMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _LightMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MetalMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _RampMap:
+        m_Texture: {fileID: 2800000, guid: 37523044e2a88ef48bc59d1a3c34d7e1, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ShadowRampMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _BodyShadowSmooth: 0.5
+    - _CurvatureScale: 1
+    - _FaceShadowMapPow: 0.3
+    - _FaceShaowOffset: 0
+    - _Glossiness: 100
+    - _HairAccGroveBaseline: 0.1
+    - _HairDarkShadowArea: 0
+    - _HairDarkShadowSmooth: -0.5
+    - _HairRange: 0
+    - _HairShadowSmooth: 0
+    - _HairSmoothShadowIntensity: 1
+    - _HairSpecAreaBaseline: 0.1
+    - _HairViewSpecularThreshold: 0.3
+    - _InNight: 0
+    - _MetalInternsity: 0
+    - _OutlineWidth: 0
+    - _PatternRange: 1
+    - _RimPower: 3
+    - _RimThreshold: 0.584
+    - _ShadowSmoothness: 0.05
+    - _ShadowThreshold: 0.5
+    - _SpecularThreshold: 0
+    - _StrokeRange: 0.3
+    - _body: 1
+    - _enum: 0
+    - _face: 0
+    - _hair: 0
+    - _key1_Float1: 0
+    - _key2_Float2: 0
+    - _specular: 1
+    m_Colors:
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _FaceShadowColor: {r: 0.8, g: 0.8, b: 0.8, a: 1}
+    - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
+    - _RimColor: {r: 1, g: 1, b: 1, a: 1}
+    - _ShadowColor: {r: 0.6, g: 0.6, b: 0.8, a: 1}
+    - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []

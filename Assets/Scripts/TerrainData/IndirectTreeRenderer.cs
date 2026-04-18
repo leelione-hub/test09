@@ -18,7 +18,7 @@ public class IndirectTreeRenderer : MonoBehaviour
     }
     
     public Terrain terrain;
-    public string dataPath = "TerrainTrees.json";
+    public string dataPath = "TerrainTrees.bytes";
 
     public ComputeShader cullingComputeShader;
     public ComputeShader hizCullingComputeShader;
@@ -63,8 +63,12 @@ public class IndirectTreeRenderer : MonoBehaviour
             return;
         }
 
-        string json = System.IO.File.ReadAllText(filePath);
-        TerrainTreeData data = JsonUtility.FromJson<TerrainTreeData>(json);
+        TerrainTreeData data = TerrainTreeSerialization.LoadTreeDataFromFile(filePath);
+        if (data == null)
+        {
+            Debug.LogError("Failed to load tree data!");
+            return;
+        }
 
         // 初始化每个原型的渲染器
         for (int i = 0; i < data.prefabPath.Count; i++)

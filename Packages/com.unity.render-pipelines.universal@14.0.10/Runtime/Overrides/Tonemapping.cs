@@ -24,6 +24,14 @@ namespace UnityEngine.Rendering.Universal
         /// Note that if you use this tonemapper all the grading operations will be done in the ACES color spaces for optimal precision and results.
         /// </summary>
         ACES, // ACES Filmic reference tonemapper (custom approximation)
+        /// <summary>
+        /// 模仿一些二游的效果
+        /// </summary>
+        NAES,
+        /// <summary>
+        /// 颜色小于0.3时使用原颜色
+        /// </summary>
+        LogTonemap2,
     }
 
     /// <summary>

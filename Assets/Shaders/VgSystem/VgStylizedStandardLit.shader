@@ -1,4 +1,4 @@
-Shader "URP/VgSystem/StylizedStandardLit"
+﻿Shader "URP/VgSystem/StylizedStandardLit"
 {
     Properties
     {
@@ -72,6 +72,20 @@ Shader "URP/VgSystem/StylizedStandardLit"
         [Sub(Terrain)] _BlendRange("Blend Range", Vector) = (0,0.2,0,0)
         [Sub(Terrain)] _TerrainBrightness("Terrain Brightness", Float) = 1
 
+        [Main(SSR, _SSR_ON, off)] _SSRGroup("SSR", Float) = 0
+        [Sub(SSR)] _SSRIntensity("SSR Intensity", Range(0, 2)) = 1
+        [Sub(SSR)] _SSRBlend("SSR Blend", Range(0, 1)) = 1
+        [Sub(SSR)] _SSRDistortion("SSR Distortion", Range(0, 1)) = 0.05
+        [Sub(SSR)] _SSRMaskByFresnel("Mask By Fresnel", Range(0, 1)) = 1
+        [Sub(SSR)] _SSRMaskBySmoothness("Mask By Smoothness", Range(0, 1)) = 1
+        [Sub(SSR)] _SSRValidThreshold("SSR Valid Threshold", Range(0, 1)) = 0.01
+        [Sub(SSR)] _SSRStepSize("SSR Step Size", Range(0.05, 4)) = 0.4
+        [Sub(SSR)] _SSRMaxDistance("SSR Max Distance", Range(1, 200)) = 40
+        [Sub(SSR)] _SSRThickness("SSR Thickness", Range(0.01, 4)) = 0.6
+        [Sub(SSR)] _SSREdgeFade("SSR Edge Fade", Range(0, 1)) = 0.15
+        [Sub(SSR)] _SSRRayStartBias("SSR Ray Start Bias", Range(0, 1)) = 0.1
+        [Sub(SSR)] _SSRMaxSteps("SSR Max Steps", Range(8, 128)) = 48
+
         [Main(Roof, _CLASSIC_ROOF_ON, off)] _RoofGroup("Classic Roof", Float) = 0
 
         [Main(Lighting, _, off, off)] _LightingGroup("Lighting", Float) = 0
@@ -140,6 +154,7 @@ Shader "URP/VgSystem/StylizedStandardLit"
             #pragma shader_feature_local_fragment _MOSS_HEIGHTTEX_ON
             #pragma shader_feature_local_fragment _LAMBERT_HALFLAMBERT
             #pragma shader_feature_local_fragment _SSAO
+            #pragma shader_feature_local_fragment _SSR_ON
             #pragma shader_feature_local _OVERLAYTEX_ON
             #pragma shader_feature_local _CLASSIC_ROOF_ON
             #pragma multi_compile_instancing
