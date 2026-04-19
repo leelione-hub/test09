@@ -48,4 +48,4 @@ MonoBehaviour:
   Resolution: 1024
   material: {fileID: 2100000, guid: 25d22b3ae1ccd7f4ab0e1eb84e3131c0, type: 2}
   mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
-  speed: 0
+  speed: 0.01

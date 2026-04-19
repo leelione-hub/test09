@@ -1,0 +1,265 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: URPGenshinToon_hair
+  m_Shader: {fileID: 4800000, guid: bd129e6ca9fc7224c85b6ed64edb523f, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _DOUBLE_SIDED
+  - _EMISSION
+  - _RIM
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: a28f9aa8c9ce11d499344f510dd10610, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BumpMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DebugMap:
+        m_Texture: {fileID: 2800000, guid: c88a5d3db8c676e45a5d324f20e963cc, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DetailAlbedoMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DetailMask:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DetailNormalMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _EmissionMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FaceLightMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FaceShadow:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FaceShadowMap:
+        m_Texture: {fileID: 2800000, guid: fdca6617d45a90a4fb26adc73fc80d73, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _LightMap:
+        m_Texture: {fileID: 2800000, guid: c88a5d3db8c676e45a5d324f20e963cc, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 2800000, guid: a28f9aa8c9ce11d499344f510dd10610, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MetalMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MetallicGlossMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MetallicMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NormalMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _OcclusionMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ParallaxMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _RampMap:
+        m_Texture: {fileID: 2800000, guid: 570dfc9c7ce217a4e8d8ad8c347c0813, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _RoughnessMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ShadowRamp:
+        m_Texture: {fileID: 2800000, guid: 570dfc9c7ce217a4e8d8ad8c347c0813, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ShadowRampMap:
+        m_Texture: {fileID: 2800000, guid: 570dfc9c7ce217a4e8d8ad8c347c0813, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SpecGlossMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AdditionalLightAffectsFace: 0
+    - _AdditionalLightDiffuseIntensity: 0.5
+    - _AdditionalLightShadowStrength: 1
+    - _AdditionalLightSpecularIntensity: 0.35
+    - _AdditionalLightWrap: 0.5
+    - _AdditionalSpecularSmoothness: 16
+    - _AlphaClip: 0
+    - _AlphaToMask: 0
+    - _Blend: 0
+    - _BlendModePreserveSpecular: 1
+    - _BodyShadowSmooth: 0.2
+    - _BumpScale: 1
+    - _ClearCoatMask: 0
+    - _ClearCoatSmoothness: 0
+    - _Cull: 2
+    - _CurvatureScale: 1
+    - _CustomMaterialType: 1
+    - _Cutoff: 0.5
+    - _DebugMode: 0
+    - _DetailAlbedoMapScale: 1
+    - _DetailNormalMapScale: 1
+    - _DoubleSided: 1
+    - _DstBlend: 0
+    - _DstBlendAlpha: 0
+    - _EdgeIntensity: 0.25
+    - _EdgeWidth: 0.1
+    - _EmissionIntensity: 1
+    - _EnvironmentReflections: 1
+    - _FaceBlushStrength: 1
+    - _FaceShadowMapPow: 2
+    - _FaceShadowOffset: 0
+    - _FaceShaowOffset: 0
+    - _GlossMapScale: 0
+    - _Glossiness: 100
+    - _GlossyReflections: 0
+    - _GridFrequency: 10
+    - _HairAccGroveBaseline: 0
+    - _HairDarkShadowArea: 0.54
+    - _HairDarkShadowSmooth: 0.47
+    - _HairRange: 0.328
+    - _HairShadowSmooth: 0
+    - _HairSmoothShadowIntensity: 1
+    - _HairSpecAreaBaseline: 0.3
+    - _HairViewSpecularThreshold: 1
+    - _InNight: 1
+    - _IsDay: 1
+    - _IsFace: 0
+    - _MetalInternsity: 0
+    - _Metallic: 0
+    - _MetallicIntensity: 1
+    - _NonmetallicIntensity: 1
+    - _NormalScale: 1
+    - _OcclusionStrength: 1
+    - _OutlineScaleByDist: 1
+    - _OutlineWidth: 0.36
+    - _OutlineZOffset: -0.06
+    - _Parallax: 0.005
+    - _PatternRange: 1
+    - _QueueOffset: 0
+    - _ReceiveShadows: 1
+    - _RimIntensity: 1
+    - _RimOffset: 1
+    - _RimPower: 3
+    - _RimThreshold: 1
+    - _Roughness: 0.5
+    - _ShadowOffset: 0
+    - _ShadowSmoothness: 0
+    - _ShadowThreshold: 0.5
+    - _Smoothness: 0.5
+    - _SmoothnessTextureChannel: 0
+    - _SpecularHighlights: 1
+    - _SpecularSmoothness: 1
+    - _SpecularThreshold: 1
+    - _SrcBlend: 1
+    - _SrcBlendAlpha: 1
+    - _StrokeRange: 0.3
+    - _Surface: 0
+    - _UseCustomMaterialType: 0
+    - _UseEmission: 1
+    - _UseNormalMap: 0
+    - _UseRim: 1
+    - _UseSmoothNormal: 0
+    - _UseSpecular: 0
+    - _WorkflowMode: 1
+    - _ZWrite: 1
+    - _body: 1
+    - _edgeIntensity: 1
+    - _edgeWidth: 0.1
+    - _edgelight: 1
+    - _emission: 1
+    - _enum: 2
+    - _face: 0
+    - _hair: 1
+    - _key1_Float1: 0
+    - _key2_Float2: 0
+    - _specular: 1
+    m_Colors:
+    - _BaseColor: {r: 0.85, g: 0.85, b: 0.85, a: 1}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _EdgeColor: {r: 1, g: 1, b: 1, a: 1}
+    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _FaceBlushColor: {r: 1, g: 1, b: 1, a: 1}
+    - _FaceDirection: {r: 0, g: 0, b: 1, a: 0}
+    - _FaceShadowColor: {r: 1, g: 1, b: 1, a: 1}
+    - _LightDirectionMultiplier: {r: 1, g: 1, b: 1, a: 0}
+    - _OutlineColor: {r: 0.44799998, g: 0.32338306, b: 0.249536, a: 1}
+    - _OutlineColor2: {r: 1, g: 0.36666667, b: 0, a: 1}
+    - _OutlineColor3: {r: 0.30200002, g: 0.20636667, b: 0.15100001, a: 1}
+    - _OutlineColor4: {r: 0.25, g: 0.17083333, b: 0.125, a: 1}
+    - _OutlineColor5: {r: 0, g: 0, b: 0, a: 1}
+    - _OutlineWidthParams: {r: 0, g: 1, b: 0, a: 1}
+    - _RimColor: {r: 1, g: 1, b: 1, a: 1}
+    - _ScreenOffset: {r: 0, g: 0, b: 0, a: 0}
+    - _ShadowColor: {r: 0.49685526, g: 0.49685526, b: 0.49685526, a: 1}
+    - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
+    - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
+    - _edgeColor: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []
+--- !u!114 &9015120642627836837
+MonoBehaviour:
+  m_ObjectHideFlags: 11
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0353a89b1f911e48b9e16bdc9f2e058, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  version: 7
