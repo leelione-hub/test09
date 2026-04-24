@@ -228,6 +228,29 @@ namespace UnityEngine.Rendering.Universal
         }
 
         /// <summary>
+        /// Renders a single shadow slice while preserving the rest of the atlas contents.
+        /// Used by staggered cascade updates to clear and redraw only one cascade tile.
+        /// </summary>
+        public static void RenderSingleShadowSlice(CommandBuffer cmd, ref ScriptableRenderContext context,
+            ref ShadowSliceData shadowSliceData, ref ShadowDrawingSettings settings,
+            Matrix4x4 proj, Matrix4x4 view)
+        {
+            cmd.SetGlobalDepthBias(1.0f, 2.5f);
+
+            cmd.SetViewport(new Rect(shadowSliceData.offsetX, shadowSliceData.offsetY, shadowSliceData.resolution, shadowSliceData.resolution));
+            cmd.SetViewProjectionMatrices(view, proj);
+            cmd.ClearRenderTarget(true, false, Color.black);
+            context.ExecuteCommandBuffer(cmd);
+            cmd.Clear();
+            context.DrawShadows(ref settings);
+            cmd.DisableScissorRect();
+            context.ExecuteCommandBuffer(cmd);
+            cmd.Clear();
+
+            cmd.SetGlobalDepthBias(0.0f, 0.0f);
+        }
+
+        /// <summary>
         /// Calculates the maximum tile resolution in an Atlas.
         /// </summary>
         /// <param name="atlasWidth"></param>

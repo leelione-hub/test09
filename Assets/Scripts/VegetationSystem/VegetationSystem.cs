@@ -1,297 +1,352 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using Unity.Collections;
-using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Rendering;
-using Debug = UnityEngine.Debug;
-using VGC = VegetationSystem.VgConstantProperty;
+using UnityEngine.Serialization;
+using VegetationSystem.HiZIntegration;
 
 namespace VegetationSystem
 {
-
     public enum VgtationType
     {
         Grass,
         Tree,
         Shrub
     }
+
     public class VegetationSystemObject : MonoBehaviour
     {
-        public  Terrain          terrain;
-        public  TextAsset        chunkDatas;
-        public  Mesh             renderMesh;
-        public  Material         renderMaterial;
-        public  ComputeShader    cullingCS;
-        public  Camera           cullingCamera;
-        public  bool             ShowGizmos;
-        private TerrainTreeDatas treeDatas;
+        [Header("Data Source")]
+        [SerializeField] private Terrain _terrain;
+        [FormerlySerializedAs("chunkDatas")]
+        [SerializeField] private TextAsset _chunkDataAsset;
 
-        private List<OldChunkInfo> allChunkInfos;
-        private List<OldChunkInfo> visibleChunkInfos;
-        private Plane[]         planes = new Plane[6];
+        [Header("Runtime")]
+        [FormerlySerializedAs("isDrawTerrainTrees")]
+        [SerializeField] private bool _drawTerrainTrees;
+        [FormerlySerializedAs("cullingCS")]
+        [SerializeField] private ComputeShader _cullingComputeShader;
+        [FormerlySerializedAs("cullingCamera")]
+        [SerializeField] private Camera _cullingCamera;
+        [FormerlySerializedAs("ShowGizmos")]
+        [SerializeField] private bool _showGizmos;
+        [FormerlySerializedAs("enableVegetationSystem")]
+        [SerializeField] private bool _enableVegetationSystem = true;
 
-        private GraphicsBuffer argsBuffer;
-        private GraphicsBuffer allInstanceBuffer;
-        private GraphicsBuffer visibleInstanceBuffer;
-        private GraphicsBuffer visibleChunkBuffer;
-        private int            preChunkInstanceMaxCount = 0;
-        private int            chunkCount               = 0;
+        [FormerlySerializedAs("renderMesh")]
+        [SerializeField, HideInInspector] private Mesh _legacyRenderMesh;
+        [FormerlySerializedAs("renderMaterial")]
+        [SerializeField, HideInInspector] private Material _legacyRenderMaterial;
 
-        private VgCulling vgCulling;
-        private VgRender  vgRender;
+        [Header("HiZ Settings")]
+        [Tooltip("Enable HiZ culling.")]
+        [SerializeField] private bool _enableHiZCulling;
+
+        [Tooltip("HiZ culling mode.")]
+        [SerializeField] private HiZCullingMode _hizCullingMode = HiZCullingMode.GPU;
+
+        [Tooltip("Depth bias in world space.")]
+        [SerializeField]
+        [Range(0f, 50f)]
+        private float _hizDepthBias = 0.01f;
+
+        [Tooltip("HiZ compute shader.")]
+        [SerializeField] private ComputeShader _hizCullingComputeShader;
+
+        [Tooltip("Fallback compute shader when HiZ is disabled.")]
+        [SerializeField] private ComputeShader _originalCullingComputeShader;
+
+        [Header("Shadow Settings")]
+        [Tooltip("Maximum vegetation shadow distance in meters. Set to 0 to reuse the render distance.")]
+        [SerializeField]
+        [Min(0f)]
+        private float _maxShadowDistance = 0f;
+
+        private TerrainTreeDatas _treeDatas;
+        private ComputeShader _baseCullingShader;
+        private readonly VgRuntimeRenderer _runtimeRenderer = new VgRuntimeRenderer();
+        private readonly VegetationCullingPipeline _cullingPipeline;
+        private readonly VegetationHiZController _hizController = new VegetationHiZController();
+
+        private VgRender _vgRender;
+
+        public enum HiZCullingMode
+        {
+            GPU,
+            CPU,
+        }
+
+        public bool RequiresDepthPyramid => _hizController.RequiresDepthPyramid(this);
+        public bool UsesRenderFeatureRendering => _hizController.UsesRenderFeatureRendering;
+        public bool EnableVegetationSystem => _enableVegetationSystem;
+
+        protected VegetationSystemObject()
+        {
+            _cullingPipeline = new VegetationCullingPipeline(new VgGpuCullingDispatcher());
+        }
 
         private void Awake()
         {
-            if (cullingCamera == null)
+            _baseCullingShader = _cullingComputeShader;
+
+            if (_cullingCamera == null)
             {
-                cullingCamera = Camera.main;
+                _cullingCamera = Camera.main;
             }
 
-            if (terrain == null)
+            if (_terrain == null)
             {
-                terrain                     = this.GetComponent<Terrain>();
+                _terrain = GetComponent<Terrain>();
             }
-            terrain.drawTreesAndFoliage = false;
+
+            if (_terrain != null)
+            {
+                _terrain.drawTreesAndFoliage = _drawTerrainTrees;
+            }
+
             InitData();
         }
 
-        void Update()
+        private void Start()
         {
-            ChunkCullingOnCPU();
-            CSDispatch();
+            SyncHiZSettings();
+            _hizController.EnsureInitialized();
+        }
+
+        private void OnEnable()
+        {
+            SyncHiZSettings();
+            _hizController.ResetInitialization();
+        }
+
+        protected virtual void Update()
+        {
+            if (UsesRenderFeatureRendering && VegetationRenderFeature.IsAvailable)
+            {
+                return;
+            }
+
+            if (!_enableVegetationSystem)
+            {
+                return;
+            }
+
+            ExecuteCulling();
             Render();
         }
 
         public virtual void InitData()
         {
-            if (chunkDatas == null) return;
-            treeDatas = TerrainTreeSerialization.LoadChunkDataFromTextAsset(chunkDatas);
-            if (treeDatas == null) return;
-            
-            vgRender  = new VgRender();
-            vgRender.InitVegetationRenderData(treeDatas, terrain.terrainData.size, terrain, gameObject.layer);
-            vgCulling = new VgCulling(vgRender, cullingCS);
-            
-            InitBuffer();
-            SetMaterialData();
-        }
-
-        public void InitBuffer()
-        {
-            // List<GrassInstanceData> datas = new List<GrassInstanceData>();
-            // allChunkInfos = new List<OldChunkInfo>();
-            // foreach (var chunkData in treeDatas.chunkDatas)
-            // {
-            //     int chunkOffset = datas.Count;
-            //     foreach (var tree in chunkData.trees)
-            //     {
-            //         var grassData = new GrassInstanceData
-            //         {
-            //             position  = tree.position,
-            //             rotationY = tree.rotation,
-            //             scale     = tree.scale
-            //         };
-            //         datas.Add(grassData);
-            //     }
-            //
-            //     int instanceCount = chunkData.trees.Count;
-            //     preChunkInstanceMaxCount = instanceCount > preChunkInstanceMaxCount
-            //         ? instanceCount
-            //         : preChunkInstanceMaxCount;
-            //     var chunk = new OldChunkInfo
-            //     {
-            //         startIndex = (uint)chunkOffset,
-            //         count      = (uint)instanceCount,
-            //         center = chunkData.aabb.center,
-            //         size = chunkData.aabb.size,
-            //     };
-            //     allChunkInfos.Add(chunk);
-            // }
-            // int stride = sizeof(float) * (3 + 1 + 2);
-            //
-            // allInstanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, datas.Count, stride);
-            // allInstanceBuffer.SetData(datas);
-            // visibleInstanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, datas.Count, stride);
-            // argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
-            //     sizeof(uint) * 5);
-        }
-
-        public void SetMaterialData()
-        {
-            // renderMaterial.SetBuffer(VgConstantProperty.INSTANCEBUFFER, visibleInstanceBuffer);
-        }
-
-        /// <summary>
-        /// cpu端先对Chunk进行一波剔除
-        /// </summary>
-        public void ChunkCullingOnCPU()
-        {
-            if (vgCulling == null || cullingCamera == null) return;
-            vgCulling.SetCullingCamera(cullingCamera);
-            vgCulling.ScheduleCulling(ref vgRender.visibleChunkGuidHashset);
-            vgRender.RefreshVisibleChunkBuffer();
-        }
-
-        /// <summary>
-        /// 设置CS上的数据，并执行对应对应的cs
-        /// </summary>
-        public void CSDispatch()
-        {
-            int cullKernel = cullingCS.FindKernel("CullInstances");
-            int classifyKernel = cullingCS.FindKernel("ClassifyVisibleInstances");
-            GeometryUtility.CalculateFrustumPlanes(cullingCamera, planes);
-            Vector4[] planeData = new Vector4[6];
-            for (int i = 0; i < 6; i++)
-            {
-                var normal   = planes[i].normal;
-                var distance = planes[i].distance;
-                planeData[i] = new Vector4(
-                    normal.x,
-                    normal.y,
-                    normal.z,
-                    distance
-                );
-            }
-            cullingCS.SetVectorArray(VGC.FRUSTUMPLANES, planeData);
-            
-            uint[] visibleCountReset = { 0u };
-
-            if (vgRender == null) return;
-
-            for (int i = 0; i < vgRender.vegetationRenderDataList.Count; i++)
-            {
-                var renderData = vgRender.vegetationRenderDataList[i];
-                int activeLodCount = renderData.activeLodCount;
-                for (int j = 0; j < activeLodCount; j++)
-                {
-                    var lodData = renderData.LodDatas[j];
-                    for (int k = 0; k < lodData.SubMeshDatas.Length; k++)
-                    {
-                        uint[] subArgs = new uint[5];
-                        subArgs[0] = lodData.mesh.GetIndexCount(k);
-                        subArgs[1] = (uint)0;
-                        subArgs[2] = lodData.mesh.GetIndexStart(k);
-                        subArgs[3] = lodData.mesh.GetBaseVertex(k);
-                        subArgs[4] = 0;
-                        lodData.SubMeshDatas[k].argsBuffer.SetData(subArgs);
-                    }
-                    lodData.VisibleInstanceBuffer.SetCounterValue(0);
-                }
-
-                renderData.VisibleInstanceBuffer.SetCounterValue(0);
-                renderData.VisibleInstanceCountBuffer.SetData(visibleCountReset);
-
-                cullingCS.SetBuffer(cullKernel, VGC.ALLINSTANCES, renderData.AllInstanceBuffer);
-                cullingCS.SetBuffer(cullKernel, VGC.VISIBLECHUNINFOS, renderData.VisibleChunkBuffer);
-                cullingCS.SetInt(VGC.CHUNKCOUNT,renderData.visibleChunkCount);
-                cullingCS.SetVector(VGC.CAMERAPOSITION,cullingCamera.gameObject.transform.position);
-                cullingCS.SetVector(VGC.BOUNDSEXTENTS, renderData.boundsExtentsOS);
-                cullingCS.SetVector(VGC.BOUNDSCENTEROS, renderData.boundsCenterOS);
-                cullingCS.SetBuffer(cullKernel, VGC.CULLEDVISIBLEINSTANCES, renderData.VisibleInstanceBuffer);
-                cullingCS.SetBuffer(cullKernel, VGC.VISIBLEINSTANCECOUNT, renderData.VisibleInstanceCountBuffer);
-
-                if (renderData.visibleChunkCount < 1)
-                {
-                    continue;
-                }
-
-                int groupX = renderData.visibleChunkCount;
-                int groupY = Mathf.CeilToInt(renderData.chunkMaxCount / 64f);
-                cullingCS.Dispatch(cullKernel, groupX, groupY, 1);
-
-                int classifyGroupX = Mathf.CeilToInt(renderData.instanceMaxCount / 64f);
-                cullingCS.SetBuffer(classifyKernel, VGC.CULLEDVISIBLEINSTANCESINPUT, renderData.VisibleInstanceBuffer);
-                cullingCS.SetBuffer(classifyKernel, VGC.VISIBLEINSTANCECOUNT, renderData.VisibleInstanceCountBuffer);
-                cullingCS.SetVector(VGC.CAMERAPOSITION,cullingCamera.gameObject.transform.position);
-
-                for (int lodIndex = 0; lodIndex < activeLodCount; lodIndex++)
-                {
-                    if (!vgRender.TryGetLodDistanceRange(
-                            renderData,
-                            lodIndex,
-                            cullingCamera,
-                            QualitySettings.lodBias,
-                            QualitySettings.maximumLODLevel,
-                            out Vector2 distanceRange))
-                    {
-                        continue;
-                    }
-
-                    var lodData = renderData.LodDatas[lodIndex];
-                    cullingCS.SetVector(VGC.LODDISTANCERANGE, distanceRange);
-                    cullingCS.SetBuffer(classifyKernel, VGC.VISIBLEINSTANCES, lodData.VisibleInstanceBuffer);
-                    cullingCS.SetBuffer(classifyKernel, VGC.ARGSBUFFER, lodData.SubMeshDatas[0].argsBuffer);
-                    cullingCS.Dispatch(classifyKernel, classifyGroupX, 1, 1);
-
-                    for (int k = 0; k < lodData.SubMeshDatas.Length; k++)
-                    {
-                        GraphicsBuffer.CopyCount(lodData.VisibleInstanceBuffer, lodData.SubMeshDatas[k].argsBuffer, sizeof(uint));
-                    }
-                }
-
-            }
-        }
-        
-        public void Render()
-        {
-           
-            if (vgRender == null) return;
-            foreach (var renderData in vgRender.vegetationRenderDataList)
-            {
-                // for (int i = 0; i < renderData.SubMeshDatas.Length; i++)
-                // {
-                //     Graphics.RenderMeshIndirect(renderData.SubMeshDatas[i].rp,renderData.mesh,renderData.SubMeshDatas[i].argsBuffer);
-                // }
-                for (int i = 0; i < renderData.activeLodCount; i++)
-                {
-                    var lodData = renderData.LodDatas[i];
-                    for (int j = 0; j < lodData.SubMeshDatas.Length; j++)
-                    {
-                        Graphics.RenderMeshIndirect(lodData.SubMeshDatas[j].rp, lodData.mesh,
-                            lodData.SubMeshDatas[j].argsBuffer);
-                    }
-                }
-            }
-        }
-
-        public void OnDrawGizmos()
-        {
-            if (!Application.isPlaying || !ShowGizmos)
+            if (_chunkDataAsset == null)
             {
                 return;
             }
 
-            if (vgRender != null)
+            _treeDatas = TerrainTreeSerialization.LoadChunkDataFromTextAsset(_chunkDataAsset);
+            if (_treeDatas == null)
             {
-                var visibleChunkList = new List<ChunkInfoForJob>();
-                foreach (var chunk in vgRender.vegetationChunkForJobDataNativeList)
+                return;
+            }
+
+            Vector3 terrainSize = _terrain != null ? _terrain.terrainData.size : Vector3.one;
+            _vgRender = new VgRender();
+            _vgRender.InitVegetationRenderData(_treeDatas, terrainSize, _terrain, gameObject.layer);
+            _cullingPipeline.Initialize(_vgRender);
+        }
+
+        public void ChunkCullingOnCPU()
+        {
+            _cullingPipeline.ExecuteCpuCulling(_cullingCamera, _vgRender);
+        }
+
+        protected void ExecuteCulling()
+        {
+            ExecuteCpuCulling();
+            ExecuteGpuCulling();
+        }
+
+        protected void ExecuteCpuCulling()
+        {
+            ChunkCullingOnCPU();
+        }
+
+        protected void ExecuteGpuCulling()
+        {
+            CSDispatch();
+        }
+
+        public virtual void CSDispatch()
+        {
+            SyncHiZSettings();
+
+            if (_enableHiZCulling && _hizCullingMode == HiZCullingMode.GPU)
+            {
+                _hizController.SetupHiZCullingParameters(_cullingCamera);
+            }
+
+            if (!_hizController.TryPrepareDispatch(
+                    _cullingCamera,
+                    out int cullKernel,
+                    out int classifyKernel,
+                    out Action<ComputeShader, int, Camera> configureCullKernel))
+            {
+                return;
+            }
+
+            _cullingPipeline.ExecuteGpuCulling(
+                _hizController.ActiveComputeShader,
+                _cullingCamera,
+                _vgRender,
+                cullKernel,
+                classifyKernel,
+                _maxShadowDistance,
+                configureCullKernel);
+        }
+
+        public void Render()
+        {
+            if (_vgRender == null)
+            {
+                return;
+            }
+
+            _runtimeRenderer.RenderDirect(_vgRender.vegetationRenderDataList);
+        }
+
+        public void OnDrawGizmos()
+        {
+            if (!Application.isPlaying || !_showGizmos || _vgRender == null)
+            {
+                return;
+            }
+
+            var visibleChunkList = new List<ChunkInfoForJob>();
+            foreach (var chunk in _vgRender.vegetationChunkForJobDataNativeList)
+            {
+                if (_vgRender.visibleChunkGuidHashset.Contains(chunk.guid))
                 {
-                    if (vgRender.visibleChunkGuidHashset.Contains(chunk.guid))
-                    {
-                        visibleChunkList.Add(chunk);
-                    }
-                    Gizmos.color = Color.red;
-                    Gizmos.DrawWireCube(chunk.center,chunk.extents * 2f - Vector3.one);
+                    visibleChunkList.Add(chunk);
                 }
 
-                foreach (var chunk in visibleChunkList)
-                {
-                    Gizmos.color = Color.green;
-                    Gizmos.DrawWireCube(chunk.center,chunk.extents * 2f - Vector3.one);
-                }
+                Gizmos.color = Color.red;
+                Gizmos.DrawWireCube(chunk.center, chunk.extents * 2f - Vector3.one);
+            }
+
+            foreach (var chunk in visibleChunkList)
+            {
+                Gizmos.color = Color.green;
+                Gizmos.DrawWireCube(chunk.center, chunk.extents * 2f - Vector3.one);
             }
         }
 
         public void OnDestroy()
         {
-            vgRender?.Dispose();
-            vgCulling?.Dispose();
-            if (terrain != null)
+            _vgRender?.Dispose();
+            _cullingPipeline.Dispose();
+
+            if (_terrain != null)
             {
-                terrain.drawTreesAndFoliage = true;
+                _terrain.drawTreesAndFoliage = true;
             }
+        }
+
+        protected VgRender GetVgRender()
+        {
+            return _vgRender;
+        }
+
+        protected bool DispatchGpuCulling(
+            int cullKernel,
+            int classifyKernel,
+            Action<ComputeShader, int, Camera> configureCullKernel = null)
+        {
+            return _cullingPipeline.ExecuteGpuCulling(
+                _hizController.ActiveComputeShader,
+                _cullingCamera,
+                _vgRender,
+                cullKernel,
+                classifyKernel,
+                _maxShadowDistance,
+                configureCullKernel);
+        }
+
+        protected VgRuntimeRenderer GetRuntimeRenderer()
+        {
+            return _runtimeRenderer;
+        }
+
+        public void ExecuteCullingForRenderPass(Camera renderCamera)
+        {
+            SyncHiZSettings();
+            if (!_hizController.TryBeginRenderPass(renderCamera, _cullingCamera, out Camera cullCamera))
+            {
+                return;
+            }
+
+            _cullingCamera = cullCamera;
+            ExecuteCpuCulling();
+
+            if (_enableHiZCulling && _hizCullingMode == HiZCullingMode.GPU)
+            {
+                _hizController.SetupHiZCullingParameters(_cullingCamera);
+            }
+
+            ExecuteGpuCulling();
+            _hizController.MarkCulledThisFrame();
+        }
+
+        public void RenderWithCommandBuffer(CommandBuffer cmd)
+        {
+            if (cmd == null)
+            {
+                return;
+            }
+
+            VgRender renderData = GetVgRender();
+            if (renderData == null)
+            {
+                return;
+            }
+
+            GetRuntimeRenderer().RenderWithCommandBuffer(cmd, renderData.vegetationRenderDataList);
+        }
+
+        public void SubmitShadowCasters()
+        {
+            if (!_hizController.TryBeginShadowSubmission())
+            {
+                return;
+            }
+
+            VgRender renderData = GetVgRender();
+            if (renderData == null)
+            {
+                return;
+            }
+
+            GetRuntimeRenderer().SubmitShadowCasters(renderData.vegetationRenderDataList);
+        }
+
+        public void SetHiZCullingEnabled(bool enabled)
+        {
+            _enableHiZCulling = enabled;
+            SyncHiZSettings();
+            _hizController.SetHiZCullingEnabled(enabled);
+            _cullingComputeShader = _hizController.ActiveComputeShader;
+        }
+
+        private void SyncHiZSettings()
+        {
+            _hizController.SyncSettings(
+                _enableHiZCulling,
+                _hizCullingMode,
+                _hizDepthBias,
+                _hizCullingComputeShader,
+                _originalCullingComputeShader != null
+                    ? _originalCullingComputeShader
+                    : (_baseCullingShader != null ? _baseCullingShader : _cullingComputeShader));
+
+            _cullingComputeShader = _hizController.ActiveComputeShader ?? _cullingComputeShader;
         }
     }
 }

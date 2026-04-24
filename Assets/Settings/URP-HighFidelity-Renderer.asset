@@ -1,5 +1,41 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-8952686231364890678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1d12c21b67444cc9f6d7f8a319f42a1, type: 3}
+  m_Name: MainLightCascadeUpdateOptimizerFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  m_EnableOptimization: 1
+  m_Cascade0Interval: 1
+  m_Cascade1Interval: 2
+  m_Cascade2Interval: 4
+  m_Cascade3Interval: 8
+--- !u!114 &-5844837711351033178
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1d12c21b67444cc9f6d7f8a319f42a1, type: 3}
+  m_Name: MainLightCascadeUpdateOptimizerFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  m_EnableOptimization: 0
+  m_Cascade0Interval: 1
+  m_Cascade1Interval: 2
+  m_Cascade2Interval: 4
+  m_Cascade3Interval: 8
 --- !u!114 &-4272977334916435722
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12,7 +48,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 539db9fc867039247beeefa250a62270, type: 3}
   m_Name: ScreenSpaceVolumetricLightRendererFeature
   m_EditorClassIdentifier: 
-  m_Active: 1
+  m_Active: 0
   settings:
     shader: {fileID: 4800000, guid: 91c1e9a0bd37c4d488772e55ab66b962, type: 3}
     renderPassEvent: 550
@@ -45,7 +81,7 @@ MonoBehaviour:
   m_Active: 1
   m_Settings:
     AOMethod: 1
-    Downsample: 0
+    Downsample: 1
     AfterOpaque: 0
     Source: 0
     NormalSamples: 1
@@ -88,7 +124,8 @@ MonoBehaviour:
   - {fileID: 2200211640217259826}
   - {fileID: -4272977334916435722}
   - {fileID: 88437296991515671}
-  m_RendererFeatureMap: adc0de57c6d2eee5721ad76ae4785f7f9db040a0d2cc505c324fd45dd4b8881ef6b002cbc055b3c4173413c840313a01
+  - {fileID: -5844837711351033178}
+  m_RendererFeatureMap: adc0de57c6d2eee5721ad76ae4785f7f9db040a0d2cc505c324fd45dd4b8881ef6b002cbc055b3c4173413c840313a01a6521d9d11f7e2ae
   m_UseNativeRenderPass: 0
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   xrSystemData: {fileID: 11400000, guid: 60e1133243b97e347b653163a8c01b64, type: 2}
@@ -143,7 +180,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 90842b4e69075cb41a1f1872725c35b5, type: 3}
   m_Name: ScreenSpaceSSSRendererFeature
   m_EditorClassIdentifier: 
-  m_Active: 1
+  m_Active: 0
   settings:
     compositeShader: {fileID: 4800000, guid: 7a6764a3093fe6649899cd1ea922631f, type: 3}
     renderPassEvent: 450
@@ -169,7 +206,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6f7a2c775a4789144a654d1357da0bfa, type: 3}
   m_Name: RiverSSRRendererFeature
   m_EditorClassIdentifier: 
-  m_Active: 1
+  m_Active: 0
   settings:
     shader: {fileID: 4800000, guid: 61f78cf5e73226842bf56018d3fd92e6, type: 3}
     renderPassEvent: 300

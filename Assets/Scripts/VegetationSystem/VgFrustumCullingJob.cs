@@ -40,7 +40,7 @@ namespace VegetationSystem
             {
                 var   near       = planes[4];
                 float signedDist = Vector3.Dot(near.normal, chunk.center) + near.distance;
-                if (signedDist < 500)
+                if (signedDist < 800)
                 {
                     visibleGuidList.AddNoResize(guid);
                 }

@@ -23,7 +23,7 @@ Material:
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 3001
   stringTagMap: {}
   disabledShaderPasses: []
   m_LockedProperties: 
@@ -50,30 +50,30 @@ Material:
     m_Floats:
     - _Alpha: 1
     - _AmbientStrength: 0.35
-    - _BackSssBoost: 2.62
-    - _BackSssPower: 1.01
-    - _BackSssStrength: 0.154
+    - _BackSssBoost: 2.4
+    - _BackSssPower: 4.17
+    - _BackSssStrength: 0
     - _BackscatterPower: 3
     - _BackscatterStrength: 1
-    - _BaseClip: 0.416
+    - _BaseClip: 0.36
     - _BlueNoiseStrength: 0.127
     - _BrightFogIntensity: 0
-    - _ClipCurvePower: 2.53
-    - _ClipLayerStrength: 0.59
+    - _ClipCurvePower: 3.69
+    - _ClipLayerStrength: 0.5
     - _CloudColorMode: 0
-    - _CoreShadowStrength: 0.4
+    - _CoreShadowStrength: 0.267
     - _Cull: 2
     - _DarknessThreshold: 0.034
     - _DebugMode: 0
     - _DensityMultiplier: 43.5
-    - _DensitySoftness: 1
+    - _DensitySoftness: 10
     - _DensityThreshold: 0.788
     - _DepthFade: 1
     - _DepthFadeDistance: 33.96
     - _DetailDensityMax: 3
     - _DetailDensityMin: -1
     - _DetailNoiseScaleMul: 2.5
-    - _DetailNoiseWeight: 0.35
+    - _DetailNoiseWeight: 0
     - _Displacement: 1.42
     - _DistanceFadeRange: 150
     - _DistanceFadeStart: 50
@@ -81,13 +81,13 @@ Material:
     - _EdgeFadePower: 1.5
     - _FarNoiseScaleMul: 2
     - _FarOffsetMul: 1.8
-    - _FinalAlpha: 0.95
+    - _FinalAlpha: 1
     - _HenyenLawIntensity: 3
     - _HighlightCompression: 1.35
     - _InnerAlphaScale: 1.15
     - _LayerGroup: 0
     - _LayerMaxOffset: 2
-    - _LayerThicknessRatio: 0.03
+    - _LayerThicknessRatio: 0.033
     - _LightAbsorb: 0.1
     - _LightDensityMultiplier: 1.33
     - _LightStepSize: 0.1
@@ -96,7 +96,7 @@ Material:
     - _NdotLPower: 1
     - _NdotVPower: 5.67
     - _NoiseGroup: 1
-    - _NoiseScale: 1
+    - _NoiseScale: 1.2
     - _NormalSampleOffset: 0.2
     - _NormalStrength: 1
     - _OuterAlphaScale: 0.7
@@ -121,16 +121,16 @@ Material:
     - _TessellationMinFactor: 1
     - _TessellationStartDistance: 8
     - _Transmittance: 0.59
-    - _ViewLightingWeight: 0.112
+    - _ViewLightingWeight: 0.11
     - _ViewShadowSuppress: 0.5
     - _ZTest: 4
     - _ZWrite: 1
     m_Colors:
-    - _BrightColor: {r: 2.828427, g: 2.828427, b: 2.828427, a: 1}
+    - _BrightColor: {r: 3.2777174, g: 3.1262867, b: 2.8450587, a: 1}
     - _DetailFlow: {r: 0.01, g: 0.01, b: 0, a: 0}
     - _DetailTiling: {r: 1.5, g: 1.5, b: 1.5, a: 0}
     - _DetailWeight: {r: 2, g: 2, b: -1, a: -1}
-    - _NoiseSpeed: {r: 0, g: 0, b: 0.5, a: 0}
+    - _NoiseSpeed: {r: 0, g: 0, b: 0.1, a: 0}
     - _SDFSizeMultiplier: {r: 1, g: 1, b: 1, a: 1}
-    - _ShadowColor: {r: 0.23521805, g: 0.31263158, b: 0.396, a: 1}
+    - _ShadowColor: {r: 0.55, g: 0.53565216, b: 0.52130437, a: 1}
   m_BuildTextureStacks: []

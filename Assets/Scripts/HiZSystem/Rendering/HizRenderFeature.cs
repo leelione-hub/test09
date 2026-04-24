@@ -2,7 +2,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using VegetationSystem.HiZIntegration;
+using VegetationSystem;
 using ProfilingScope = UnityEngine.Rendering.ProfilingScope;
 
 namespace HiZTechnique
@@ -91,7 +91,7 @@ namespace HiZTechnique
 
         internal static bool HasAnyDepthPyramidConsumers()
         {
-            var vegetationSystems = Object.FindObjectsByType<VegetationSystemObjectHiZ>(FindObjectsSortMode.None);
+            var vegetationSystems = Object.FindObjectsByType<VegetationSystemObject>(FindObjectsSortMode.None);
             if (vegetationSystems == null || vegetationSystems.Length == 0)
             {
                 return false;

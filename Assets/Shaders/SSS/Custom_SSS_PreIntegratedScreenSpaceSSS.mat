@@ -12,6 +12,7 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
+  - _NORMALMAP
   - _PREINTEGRATED_SSS_ON
   - _SPECULAR_ON
   - _SSS_ADDITIONAL_LIGHTS_ON
@@ -56,7 +57,7 @@ Material:
     - _Cutoff: 0.5
     - _EmissionIntensity: 0
     - _LightingGroup: 0
-    - _NormalGroup: 0
+    - _NormalGroup: 1
     - _NormalScale: 1
     - _PreIntegratedGroup: 1
     - _PreIntegratedSSSIntensity: 0.15
@@ -83,7 +84,7 @@ Material:
     - _ZTest: 4
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.55345905, g: 0.55345905, b: 0.55345905, a: 1}
+    - _BaseColor: {r: 0.7735849, g: 0.6989882, b: 0.5862703, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 0}
     - _SSSColor: {r: 1, g: 0.45, b: 0.35, a: 1}
     - _TransmissionColor: {r: 1, g: 0.35, b: 0.25, a: 1}

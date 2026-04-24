@@ -12,6 +12,8 @@ namespace VegetationSystem.HiZIntegration
     /// </summary>
     public class VegetationRenderFeature : ScriptableRendererFeature
     {
+        public static bool IsAvailable { get; private set; }
+
         [System.Serializable]
         public class VegetationRenderFeatureSettings
         {
@@ -38,6 +40,7 @@ namespace VegetationSystem.HiZIntegration
 
         public override void Create()
         {
+            IsAvailable = true;
             _renderPass = new VegetationRenderPass();
             _renderPass.renderPassEvent = settings.renderPassEvent;
 
@@ -124,6 +127,7 @@ namespace VegetationSystem.HiZIntegration
 
         protected override void Dispose(bool disposing)
         {
+            IsAvailable = false;
             if (_subscribedToBeginCameraRendering)
             {
                 RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
@@ -187,7 +191,7 @@ namespace VegetationSystem.HiZIntegration
                 return;
             }
 
-            var vegetationSystems = Object.FindObjectsByType<VegetationSystemObjectHiZ>(FindObjectsSortMode.None);
+            var vegetationSystems = Object.FindObjectsByType<VegetationSystemObject>(FindObjectsSortMode.None);
             if (vegetationSystems == null || vegetationSystems.Length == 0)
             {
                 return;
@@ -196,11 +200,16 @@ namespace VegetationSystem.HiZIntegration
             for (int i = 0; i < vegetationSystems.Length; i++)
             {
                 var system = vegetationSystems[i];
-                if (system == null || !system.isActiveAndEnabled)
+                if (system == null || !system.isActiveAndEnabled || !system.EnableVegetationSystem)
                 {
                     continue;
                 }
 
+                if (!system.UsesRenderFeatureRendering)
+                {
+                    continue;
+                }
+                
                 system.ExecuteCullingForRenderPass(camera);
                 system.SubmitShadowCasters();
             }
@@ -225,7 +234,7 @@ namespace VegetationSystem.HiZIntegration
                 return;
             }
 
-            var vegetationSystems = Object.FindObjectsByType<VegetationSystemObjectHiZ>(FindObjectsSortMode.None);
+            var vegetationSystems = Object.FindObjectsByType<VegetationSystemObject>(FindObjectsSortMode.None);
             if (vegetationSystems == null || vegetationSystems.Length == 0)
             {
                 return;
@@ -239,7 +248,11 @@ namespace VegetationSystem.HiZIntegration
                     for (int i = 0; i < vegetationSystems.Length; i++)
                     {
                         var system = vegetationSystems[i];
-                        if (system == null || !system.isActiveAndEnabled)
+                        if (system == null || !system.isActiveAndEnabled || !system.EnableVegetationSystem)
+                        {
+                            continue;
+                        }
+                        if (!system.UsesRenderFeatureRendering)
                         {
                             continue;
                         }

@@ -72,8 +72,8 @@ float WorldSpaceToNdcDepthBias(float viewSpaceZ, float worldSpaceBias)
     }
 
     float depthDerivative = (farPlane * nearPlane) / (denom * viewSpaceZ * viewSpaceZ);
-    float clampedDerivative = saturate(depthDerivative * 1000.0f) * 0.01f;
-    return worldSpaceBias * clampedDerivative + 0.001f;
+    float clampedDerivative = saturate(depthDerivative * 10000.0f) * 0.001f;
+    return worldSpaceBias * clampedDerivative + 0.0005f;
 }
 
 bool FrustumTest(float3 center, float3 extents)

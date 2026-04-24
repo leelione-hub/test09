@@ -82,7 +82,8 @@ half4 Frag(Varyings input) : SV_Target
     // 这版实现只使用主方向光来驱动散射。
     Light mainLight = GetMainLight();
     float3 lightDirWS = normalize(mainLight.direction);
-    float phase = PhaseHenyeyGreenstein(dot(rayDirWS, lightDirWS), SSVL_ANISOTROPY);
+    // Ray March 的视线方向是“相机 -> 场景”，而相位函数需要“采样点 -> 相机”的出射方向。
+    float phase = PhaseHenyeyGreenstein(dot(-rayDirWS, lightDirWS), SSVL_ANISOTROPY);
 
     float3 accumulatedLight = 0.0;
     float transmittance = 1.0;
@@ -109,13 +110,14 @@ half4 Frag(Varyings input) : SV_Target
         // 当前步累加被照亮的介质散射；
         // 后续步再通过 transmittance 持续衰减。
         float3 stepScattering = _SSVLScatteringColor.rgb * mainLight.color * (density * phase * shadowAttenuation);
-        accumulatedLight += transmittance * stepScattering * stepLength * 1.0 / stepCount;
+        accumulatedLight += transmittance * stepScattering * stepLength;
         transmittance *= exp(-density * SSVL_EXTINCTION * stepLength);
     }
 
     // 体积光结果以加法方式叠加回原始画面。
     float3 finalColor = source.rgb + accumulatedLight * SSVL_INTENSITY;
-    // finalColor =  accumulatedLight * SSVL_INTENSITY;
+    finalColor = source.rgb * transmittance + accumulatedLight * SSVL_INTENSITY;
+
     return half4(finalColor, source.a);
 }
 

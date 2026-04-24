@@ -2,74 +2,71 @@ Shader "URPGenshinToon"
 {
     Properties
     {
-        [Header(General)]
-        [MainTexture]_BaseMap("Base Map", 2D) = "white" {}
-        [MainColor] _BaseColor("Base Color", Color) = (1,1,1,1)
-        [ToggleUI] _IsDay("Is Day", Float) = 1
-        [Toggle(_DOUBLE_SIDED)] _DoubleSided("Double Sided", Float) = 0
-        [Enum(UnityEngine.Rendering.CullMode)] _Cull("Cull", Float) = 2
-        [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend("Src Blend", Float) = 1
-        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend("Dst Blend", Float) = 0
+        [Main(Preset, _, off, off)] _PresetGroup("Render Preset", Float) = 0
+        [SubToggle(Preset,_DOUBLE_SIDED)] _DoubleSided("Double Sided", Float) = 0
+        [SubEnum(Preset, UnityEngine.Rendering.CullMode)] _Cull("Cull", Float) = 2
+        [SubEnum(Preset, UnityEngine.Rendering.BlendMode)] _SrcBlend("Src Blend", Float) = 1
+        [SubEnum(Preset, UnityEngine.Rendering.BlendMode)] _DstBlend("Dst Blend", Float) = 0
 
-        [Header(Shadow)]
-        _LightMap("Light Map", 2D) = "white" {}
-        _LightDirectionMultiplier("Light Direction Multiplier", Vector) = (1,1,1,0)
-        _ShadowOffset("Shadow Offset", Float) = 0
-        _ShadowSmoothness("Shadow Smoothness", Float) = 0
-        [HDR] _ShadowColor("Shadow Color", Color) = (1,1,1,1)
-        _ShadowRamp("Shadow Ramp", 2D) = "white" {}
-        [ToggleUI] _UseCustomMaterialType("Use Custom Material Type", Float) = 0
-        _CustomMaterialType("Custom Material Type", Float) = 1
+        [Main(General, _, on, off)] _GeneralGroup("General", Float) = 1
+        [Sub(General)][MainTexture] _BaseMap("Base Map", 2D) = "white" {}
+        [Sub(General)][MainColor] _BaseColor("Base Color", Color) = (1,1,1,1)
+        [Sub(General)] _IsDay("Is Day", Float) = 1
 
-        [Header(Emission)]
-        [Toggle(_EMISSION)] _UseEmission("Use Emission", Float) = 0
-        _EmissionIntensity("Emission Intensity", Float) = 1
+        [Main(Shadow, _, on, off)] _ShadowGroup("Shadow", Float) = 1
+        [Sub(Shadow)] _LightMap("Light Map", 2D) = "white" {}
+        [Sub(Shadow)] _LightDirectionMultiplier("Light Direction Multiplier", Vector) = (1,1,1,0)
+        [Sub(Shadow)] _ShadowOffset("Shadow Offset", Float) = 0
+        [Sub(Shadow)] _ShadowSmoothness("Shadow Smoothness", Float) = 0
+        [Sub(Shadow)][HDR] _ShadowColor("Shadow Color", Color) = (1,1,1,1)
+        [Sub(Shadow)] _ShadowRamp("Shadow Ramp", 2D) = "white" {}
+        [Sub(Shadow)] _UseCustomMaterialType("Use Custom Material Type", Float) = 0
+        [Sub(Shadow)] _CustomMaterialType("Custom Material Type", Float) = 1
 
-        [Header(Normal)]
-        [Toggle(_NORMAL_MAP)] _UseNormalMap("Use Normal Map", Float) = 0
-        [Normal] _NormalMap("Normal Map", 2D) = "bump" {}
+        [Main(Emission, _EMISSION, off)] _EmissionGroup("Emission", Float) = 0
+        [Sub(Emission)] _EmissionIntensity("Emission Intensity", Float) = 1
 
-        [Header(Face)]
-        [Toggle(_IS_FACE)] _IsFace("Is Face", Float) = 0
-        _FaceDirection("Face Direction", Vector) = (0,0,1,0)
-        _FaceShadowOffset("Face Shadow Offset", Float) = 0
-        _FaceBlushColor("Face Blush Color", Color) = (1,1,1,1)
-        _FaceBlushStrength("Face Blush Strength", Float) = 1
-        _FaceLightMap("Face Light Map", 2D) = "white" {}
-        _FaceShadow("Face Shadow", 2D) = "white" {}
+        [Main(Normal, _NORMAL_MAP, off)] _NormalGroup("Normal", Float) = 0
+        [Sub(Normal)][Normal] _NormalMap("Normal Map", 2D) = "bump" {}
 
-        [Header(Specular)]
-        [Toggle(_SPECULAR)] _UseSpecular("Use Specular", Float) = 0
-        _SpecularSmoothness("Specular Smoothness", Float) = 1
-        _NonmetallicIntensity("Nonmetallic Intensity", Float) = 1
-        _MetallicIntensity("Metallic Intensity", Float) = 1
-        _MetalMap("Metal Map", 2D) = "white" {}
+        [Main(Face, _IS_FACE, off)] _FaceGroup("Face", Float) = 0
+        [Sub(Face)] _FaceDirection("Face Direction", Vector) = (0,0,1,0)
+        [Sub(Face)] _FaceShadowOffset("Face Shadow Offset", Float) = 0
+        [Sub(Face)] _FaceBlushColor("Face Blush Color", Color) = (1,1,1,1)
+        [Sub(Face)] _FaceBlushStrength("Face Blush Strength", Float) = 1
+        [Sub(Face)] _FaceLightMap("Face Light Map", 2D) = "white" {}
+        [Sub(Face)] _FaceShadow("Face Shadow", 2D) = "white" {}
 
-        [Header(Additional Lights)]
-        _AdditionalLightDiffuseIntensity("Additional Light Diffuse Intensity", Float) = 0.5
-        _AdditionalLightSpecularIntensity("Additional Light Specular Intensity", Float) = 0.35
-        _AdditionalLightWrap("Additional Light Wrap", Range(0,1)) = 0.5
-        _AdditionalSpecularSmoothness("Additional Specular Smoothness", Float) = 16
-        [ToggleUI] _AdditionalLightAffectsFace("Additional Light Affects Face", Float) = 0
-        _AdditionalLightShadowStrength("Additional Light Shadow Strength", Range(0,1)) = 1
+        [Main(Specular, _SPECULAR, off)] _SpecularGroup("Specular", Float) = 0
+        [Sub(Specular)] _SpecularSmoothness("Specular Smoothness", Float) = 1
+        [Sub(Specular)] _NonmetallicIntensity("Nonmetallic Intensity", Float) = 1
+        [Sub(Specular)] _MetallicIntensity("Metallic Intensity", Float) = 1
+        [Sub(Specular)] _MetalMap("Metal Map", 2D) = "white" {}
 
-        [Header(Rim Light)]
-        [Toggle(_RIM)] _UseRim("Use Rim", Float) = 0
-        _RimOffset("Rim Offset", Float) = 1
-        _RimThreshold("Rim Threshold", Float) = 1
-        _RimIntensity("Rim Intensity", Float) = 1
+        [Main(Additional, _, off, off)] _AdditionalGroup("Additional Lights", Float) = 0
+        [Sub(Additional)] _AdditionalLightDiffuseIntensity("Additional Light Diffuse Intensity", Float) = 0.5
+        [Sub(Additional)] _AdditionalLightSpecularIntensity("Additional Light Specular Intensity", Float) = 0.35
+        [Sub(Additional)] _AdditionalLightWrap("Additional Light Wrap", Range(0,1)) = 0.5
+        [Sub(Additional)] _AdditionalSpecularSmoothness("Additional Specular Smoothness", Float) = 16
+        [Sub(Additional)] _AdditionalLightAffectsFace("Additional Light Affects Face", Float) = 0
+        [Sub(Additional)] _AdditionalLightShadowStrength("Additional Light Shadow Strength", Range(0,1)) = 1
 
-        [Header(Outline)]
-        [ToggleUI] _UseSmoothNormal("Use Smooth Normal", Float) = 0
-        _OutlineWidth("Outline Width", Float) = 1
-        _OutlineWidthParams("Outline Width Params", Vector) = (0,1,0,1)
-        _OutlineZOffset("Outline Z Offset", Float) = 0
-        _ScreenOffset("Screen Offset", Vector) = (0,0,0,0)
-        _OutlineColor("Outline Color", Color) = (0,0,0,1)
-        _OutlineColor2("Outline Color 2", Color) = (0,0,0,1)
-        _OutlineColor3("Outline Color 3", Color) = (0,0,0,1)
-        _OutlineColor4("Outline Color 4", Color) = (0,0,0,1)
-        _OutlineColor5("Outline Color 5", Color) = (0,0,0,1)
+        [Main(Rim, _RIM, off)] _RimGroup("Rim Light", Float) = 0
+        [Sub(Rim)] _RimOffset("Rim Offset", Float) = 1
+        [Sub(Rim)] _RimThreshold("Rim Threshold", Float) = 1
+        [Sub(Rim)] _RimIntensity("Rim Intensity", Float) = 1
+
+        [Main(Outline, _, on, off)] _OutlineGroup("Outline", Float) = 1
+        [Sub(Outline)] _UseSmoothNormal("Use Smooth Normal", Float) = 0
+        [Sub(Outline)] _OutlineWidth("Outline Width", Float) = 1
+        [Sub(Outline)] _OutlineWidthParams("Outline Width Params", Vector) = (0,1,0,1)
+        [Sub(Outline)] _OutlineZOffset("Outline Z Offset", Float) = 0
+        [Sub(Outline)] _ScreenOffset("Screen Offset", Vector) = (0,0,0,0)
+        [Sub(Outline)] _OutlineColor("Outline Color", Color) = (0,0,0,1)
+        [Sub(Outline)] _OutlineColor2("Outline Color 2", Color) = (0,0,0,1)
+        [Sub(Outline)] _OutlineColor3("Outline Color 3", Color) = (0,0,0,1)
+        [Sub(Outline)] _OutlineColor4("Outline Color 4", Color) = (0,0,0,1)
+        [Sub(Outline)] _OutlineColor5("Outline Color 5", Color) = (0,0,0,1)
     }
 
     Subshader
@@ -211,4 +208,6 @@ Shader "URPGenshinToon"
             ENDHLSL
         }
     }
+
+    CustomEditor "LWGUI.LWGUI"
 }

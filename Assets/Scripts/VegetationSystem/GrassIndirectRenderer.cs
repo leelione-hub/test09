@@ -1,189 +1,187 @@
-using Extension;
-using LWGUI;
+using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace VegetationSystem
 {
-    public class GrassIndirectRenderer : MonoBehaviour
+    public sealed class GrassIndirectRenderer : MonoBehaviour
     {
-        public  Mesh     grassMesh;
-        public  Material grassMaterial;
-        private int      grassCount           = 100_000;
-        public  float    areaSize             = 50f;
-        public  Vector3  terrainSize          = new Vector3(1000, 1000, 1000);
-        public  bool     EnableFrustumCulling = true;
-        public  Camera   cullingCamere;
-        
-        private GraphicsBuffer allInstanceBuffer;
-        private GraphicsBuffer argsBuffer;
-        // private GraphicsBuffer grassBuffer;
-        private GraphicsBuffer visibleBuffer;
+        [SerializeField] private Vector3 _terrainSize = new Vector3(1000f, 1000f, 1000f);
+        [SerializeField] private bool _enableFrustumCulling = true;
+        [SerializeField] private Camera _cullingCamera;
+        [SerializeField] private ComputeShader _cullingComputeShader;
+        [SerializeField] private TextAsset _grassDataAsset;
 
-        const int ARGS_STRIDE = 5;
+        private readonly VgRuntimeRenderer _runtimeRenderer = new VgRuntimeRenderer();
+        private readonly VgGpuCullingDispatcher _gpuCullingDispatcher = new VgGpuCullingDispatcher();
 
-        public ComputeShader cullingCS;
+        private VgRender _vgRender;
+        private VgCulling _cpuCulling;
 
-        public TextAsset grassJson;
-
-        private int stride;
-
-        private int ALLINSTANCES     = Shader.PropertyToID("_AllInstances");
-        private int VISIBLEINSTANCES = Shader.PropertyToID("_VisibleInstances");
-        private int ARGSBUFFER       = Shader.PropertyToID("_ArgsBuffer");
-        private int FRUSTUMPLANES    = Shader.PropertyToID("_FrustumPlanes");
-        private int ENABLECULLING    = Shader.PropertyToID("EnableFrustumCulling");
-        private int INSTANCEBUFFER   = Shader.PropertyToID("_InstanceBuffer");
-
-        private VgRender  _vgRender;
-        private VgCulling _vgCulling;
-
-
-
-        void Start()
+        private void Start()
         {
-            if (cullingCamere == null)
+            if (_cullingCamera == null)
             {
-                cullingCamere = Camera.main;
+                _cullingCamera = Camera.main;
             }
 
-            if (this.GetComponentInChildren<Terrain>())
+            Terrain terrain = GetComponent<Terrain>();
+            if (terrain != null)
             {
-                var data = this.GetComponent<Terrain>().terrainData;
-                terrainSize = data.bounds.size;
+                _terrainSize = terrain.terrainData.size;
             }
-            
-            _vgRender           = new VgRender();
-            _vgRender.isCulling = true;
-            _vgCulling          = new VgCulling(_vgRender,cullingCS);
-            _vgCulling.SetCullingCamera(cullingCamere);
-            
-            InitBuffers();
-        }
 
-        void InitBuffers()
-        {
-            var grassData = LoadGrassDatas();
-
-            _vgRender.InitVgDatas(grassData, terrainSize/*,grassMesh,grassMaterial*/);
-            
+            TerrainTreeData grassData = LoadGrassData();
             if (grassData == null)
             {
-                //没有加载到对应的数据
-                this.enabled = false;
+                enabled = false;
                 return;
             }
 
-            grassCount = grassData.trees.Count;
-            stride     = sizeof(float) * (3 + 1 + 2);
-            
-            allInstanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, grassCount, stride);
-            SetAllBufferDatas(grassData);
-            
-            visibleBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Append, grassCount, stride);
-            argsBuffer    = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1, sizeof(uint) * ARGS_STRIDE);
-            
-          
+            TerrainTreeDatas chunkedGrassData = ConvertToChunkedData(grassData, _terrainSize);
+
+            _vgRender = new VgRender();
+            _vgRender.InitVegetationRenderData(chunkedGrassData, _terrainSize, terrain, gameObject.layer);
+            _cpuCulling = new VgCulling(_vgRender);
         }
 
-        void DispatchCulling()
+        private void Update()
         {
-            visibleBuffer.SetCounterValue(0);
+            if (_vgRender == null || _cullingComputeShader == null || _cullingCamera == null)
+            {
+                return;
+            }
 
-            uint[] args = new uint[ARGS_STRIDE];
-            args[0] = grassMesh.GetIndexCount(0);
-            args[1] = (uint)grassCount;
-            args[2] = grassMesh.GetIndexStart(0);
-            args[3] = grassMesh.GetBaseVertex(0);
-            args[4] = 0;
-            argsBuffer.SetData(args);
+            if (_enableFrustumCulling && _cpuCulling != null)
+            {
+                _cpuCulling.SetCullingCamera(_cullingCamera);
+                _cpuCulling.ScheduleCulling(_vgRender.visibleChunkGuidHashset);
+                _vgRender.RefreshVisibleChunkBuffer();
+            }
+            else
+            {
+                ResetVisibleChunksToAll();
+            }
 
-            int kernel = 0 /*cullingCS.FindKernel("CSMain")*/;
+            int cullKernel = FindKernel("CullInstances");
+            int classifyKernel = FindKernel("ClassifyVisibleInstances");
+            if (cullKernel < 0 || classifyKernel < 0)
+            {
+                return;
+            }
 
-            cullingCS.SetBuffer(kernel, ALLINSTANCES, allInstanceBuffer);
-            cullingCS.SetBuffer(kernel, VISIBLEINSTANCES, visibleBuffer);
-            cullingCS.SetBuffer(kernel, ARGSBUFFER, argsBuffer);
-            cullingCS.SetBool(ENABLECULLING,EnableFrustumCulling);
-            SetFrustumPlanes(cullingCS);
+            _gpuCullingDispatcher.Dispatch(
+                _cullingComputeShader,
+                _cullingCamera,
+                _vgRender,
+                cullKernel,
+                classifyKernel,
+                0f);
 
-            int threadGroup = Mathf.CeilToInt(grassCount / 64.0f);
-            cullingCS.Dispatch(kernel, threadGroup, 1, 1);
+            _runtimeRenderer.RenderDirect(_vgRender.vegetationRenderDataList);
         }
 
-        TerrainTreeData LoadGrassDatas()
+        private void OnDisable()
         {
-            if (grassJson == null)
+            _cpuCulling?.Dispose();
+            _vgRender?.Dispose();
+            _cpuCulling = null;
+            _vgRender = null;
+        }
+
+        private TerrainTreeData LoadGrassData()
+        {
+            if (_grassDataAsset == null)
             {
                 return null;
             }
-            TerrainTreeData treedata = TerrainTreeSerialization.LoadTreeDataFromTextAsset(grassJson);
-            return treedata;
+
+            return TerrainTreeSerialization.LoadTreeDataFromTextAsset(_grassDataAsset);
         }
 
-        void SetAllBufferDatas(TerrainTreeData treedata)
+        private TerrainTreeDatas ConvertToChunkedData(TerrainTreeData sourceData, Vector3 terrainSize)
         {
-            GrassInstanceData[] data = new GrassInstanceData[grassCount];
-            for (int i = 0; i < grassCount; i++)
+            List<TreeInstanceData> worldInstances = new List<TreeInstanceData>(sourceData.trees.Count);
+            Bounds chunkBounds = default;
+            bool hasBounds = false;
+
+            for (int i = 0; i < sourceData.trees.Count; i++)
             {
-                data[i] = new GrassInstanceData
+                TreeInstanceData source = sourceData.trees[i];
+                Vector3 worldPosition = Vector3.Scale(source.position, terrainSize);
+
+                TreeInstanceData converted = new TreeInstanceData
                 {
-                    position = treedata.trees[i].position.Multiply(terrainSize),
-                    rotationY = treedata.trees[i].rotation,
-                    scale = treedata.trees[i].scale
+                    position = worldPosition,
+                    scale = source.scale,
+                    prototypeIndex = source.prototypeIndex,
+                    rotation = source.rotation
                 };
+                worldInstances.Add(converted);
+
+                Vector3 extents = new Vector3(
+                    Mathf.Max(converted.scale.x, 1f),
+                    Mathf.Max(converted.scale.y, 1f),
+                    Mathf.Max(converted.scale.z, 1f));
+
+                if (!hasBounds)
+                {
+                    chunkBounds = new Bounds(worldPosition, extents * 2f);
+                    hasBounds = true;
+                }
+                else
+                {
+                    chunkBounds.Encapsulate(new Bounds(worldPosition, extents * 2f));
+                }
             }
-            allInstanceBuffer.SetData(data);
-            //grassMaterial.SetBuffer(INSTANCEBUFFER, allInstanceBuffer);
-        }
-        
 
-        void Update()
-        {
-            // DispatchCulling();
-            // Render();
-            _vgCulling.DispatchCulling(_vgRender.vgDataList);
-            _vgRender.Render();
-        }
-
-        void Render()
-        {
-            grassMaterial.SetBuffer(INSTANCEBUFFER, visibleBuffer);
-            RenderParams rp = new RenderParams(grassMaterial)
+            if (!hasBounds)
             {
-                layer             = gameObject.layer,
-                shadowCastingMode = ShadowCastingMode.On,
-                receiveShadows    = true,
-                worldBounds       = new Bounds(Vector3.zero, Vector3.one * areaSize)
+                chunkBounds = new Bounds(Vector3.zero, terrainSize);
+            }
+
+            return new TerrainTreeDatas
+            {
+                prefabPath = new List<string>(sourceData.prefabPath),
+                chunkDatas = new List<TerrainChunkData>
+                {
+                    new TerrainChunkData
+                    {
+                        aabb = chunkBounds,
+                        trees = worldInstances
+                    }
+                }
             };
-            Graphics.RenderMeshIndirect(rp, grassMesh, argsBuffer);
-            
         }
 
-        void SetFrustumPlanes(ComputeShader cs)
+        private void ResetVisibleChunksToAll()
         {
-            Plane[] planes = GeometryUtility.CalculateFrustumPlanes(cullingCamere);
+            var visibleChunkSet = _vgRender.visibleChunkGuidHashset;
+            visibleChunkSet.Clear();
 
-            Vector4[] planeData = new Vector4[6];
-            for (int i = 0; i < 6; i++)
+            var allChunkInfos = _vgRender.vegetationChunkForJobDataNativeList;
+            for (int i = 0; i < allChunkInfos.Length; i++)
             {
-                var normal   = planes[i].normal;
-                var distance = planes[i].distance;
-                planeData[i] = new Vector4(
-                    normal.x,
-                    normal.y,
-                    normal.z,
-                    distance
-                    );
+                visibleChunkSet.Add(allChunkInfos[i].guid);
             }
-            cs.SetVectorArray(FRUSTUMPLANES, planeData);
+
+            _vgRender.RefreshVisibleChunkBuffer();
         }
 
-        void OnDisable()
+        private int FindKernel(string kernelName)
         {
-            allInstanceBuffer?.Release();
-            visibleBuffer?.Release();
-            argsBuffer?.Release();
-            _vgRender.Dispose();
+            if (_cullingComputeShader == null)
+            {
+                return -1;
+            }
+
+            try
+            {
+                return _cullingComputeShader.FindKernel(kernelName);
+            }
+            catch
+            {
+                return -1;
+            }
         }
     }
 }
